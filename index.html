@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ตลาดร่อนพิบูลย์ - กล้องถ่ายทอดสด</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f0f0; margin: 0; text-align: center; }
+    h1 { background: #0077cc; color: white; padding: 1rem; margin: 0; }
+    #video-container { margin-top: 1rem; }
+    iframe { width: 90vw; height: 50vh; border: none; }
+    .info-box { margin-top: 1rem; padding: 1rem; background: white; display: inline-block; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .weather { margin-top: 1rem; }
+    img.snapshot { margin-top: 1rem; width: 90vw; max-width: 600px; }
+  </style>
+</head>
+<body>
+  <h1>📍 ตลาดร่อนพิบูลย์ - กล้องถ่ายทอดสด</h1>
+  <div id="video-container">
+    <iframe src="https://ramrome.thddns.net:3383" allowfullscreen></iframe>
+  </div>
+  <div class="info-box">
+    <div id="clock">เวลา: --:--:--</div>
+    <div id="weather" class="weather">โหลดข้อมูลอากาศ...</div>
+    <img id="snapshot" class="snapshot" src="snapshots/latest.jpg" alt="ภาพนิ่งล่าสุด" />
+  </div>
+  <script>
+    function updateClock() {
+      const now = new Date();
+      now.setHours(now.getHours() + 7); // GMT+7
+      document.getElementById("clock").textContent =
+        "เวลา: " + now.toLocaleTimeString("th-TH");
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function loadWeather() {
+      try {
+        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=8.181&longitude=99.9302&current=temperature_2m,weather_code,wind_speed_10m");
+        const data = await res.json();
+        const current = data.current;
+        const weatherCode = current.weather_code;
+        const weatherDesc = {
+          0: "แจ่มใส", 1: "มีเมฆบางส่วน", 2: "มีเมฆมาก", 3: "เมฆครึ้ม",
+          45: "มีหมอก", 48: "หมอกจัด", 51: "ฝนปรอย", 61: "ฝนเล็กน้อย",
+          63: "ฝนปานกลาง", 65: "ฝนหนัก", 80: "ฝนเป็นหย่อม", 95: "ฝนฟ้าคะนอง"
+        };
+        document.getElementById("weather").innerHTML =
+          "🌡 อุณหภูมิ: " + current.temperature_2m + "°C<br>" +
+          "💨 ลม: " + current.wind_speed_10m + " km/h<br>" +
+          "⛅️ สภาพอากาศ: " + (weatherDesc[weatherCode] || "ไม่ทราบ");
+      } catch (e) {
+        document.getElementById("weather").textContent = "ไม่สามารถโหลดข้อมูลอากาศ";
+      }
+    }
+    loadWeather();
+  </script>
+</body>
+</html>
