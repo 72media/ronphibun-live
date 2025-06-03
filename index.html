@@ -13,7 +13,7 @@
   </style>
   <script>
     async function updateTime() {
-      const options = { timeZone: 'Asia/Bangkok', hour12: false };
+      const options = { timeZone: 'Asia/Bangkok', hour24: false };
       const now = new Date();
       const timeString = now.toLocaleTimeString('th-TH', options);
       document.getElementById('time').innerText = `เวลา: ${timeString}`;
