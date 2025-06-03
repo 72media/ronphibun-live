@@ -1,127 +1,63 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ตลาดร่อนพิบูลย์ - กล้องและสภาพอากาศ</title>
-  <link href="https://fonts.googleapis.com/css2?family=Kanit&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตลาดร่อนพิบูลย์ - ถ่ายทอดสด</title>
   <style>
     body {
-      font-family: 'Kanit', sans-serif;
-      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
-      text-align: center;
-      color: #333;
+      font-family: 'Kanit', sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     header {
       background-color: #007BFF;
       color: white;
-      padding: 1.5rem 0;
-      font-size: 2rem;
+      padding: 1rem;
+      width: 100%;
+      text-align: center;
+      font-size: 1.8rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .container {
-      padding: 2rem 1rem;
-    }
-
-    .snapshot {
-      max-width: 100%;
-      height: auto;
-      border-radius: 10px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-      margin-bottom: 2rem;
-    }
-
-    .weather {
-      background: white;
-      display: inline-block;
-      padding: 1.5rem 2rem;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-      font-size: 1.2rem;
-      line-height: 1.8;
-      margin-bottom: 2rem;
-    }
-
-    .video-container iframe,
-    .map-container iframe {
+      max-width: 900px;
       width: 100%;
-      max-width: 800px;
-      height: 450px;
-      border-radius: 10px;
-      border: none;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      padding: 20px;
     }
 
-    .highlight {
-      color: #d63333;
-      font-weight: bold;
+    iframe {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        font-size: 1.4rem;
+      }
+      iframe {
+        height: 280px;
+      }
+    }
+
+    @media (min-width: 769px) {
+      iframe {
+        height: 500px;
+      }
     }
   </style>
 </head>
 <body>
-  <header>📍 ตลาดร่อนพิบูลย์ - กล้องและสภาพอากาศ</header>
-
+  <header>📍 ตลาดร่อนพิบูลย์ - ถ่ายทอดสด</header>
   <div class="container">
-    <img id="snapshot" class="snapshot" src="snapshots/latest.jpg" alt="ภาพล่าสุดจากกล้อง">
-
-    <div class="weather">
-      <div id="time" class="highlight">เวลา: --:--:--</div>
-      <div id="temp">🌡️ อุณหภูมิ: ...</div>
-      <div id="wind">🌬️ ลม: ...</div>
-      <div id="desc">☁️ สภาพอากาศ: ...</div>
-    </div>
-
-    <div class="video-container">
-      <h3>🎥 กล้องถ่ายทอดสด</h3>
-      <iframe src="https://demo.flashphoner.com:8888/embed_player?urlServer=wss://demo.flashphoner.com:8443&amp;streamName=rtsp%3A%2F%2Fadmin%3Apk%400639544615%40ramrome.thddns.net%3A3381%2Fstream1&amp;mediaProviders=WebRTC,MSE" allowfullscreen></iframe>
-    </div>
-
-    <div class="map-container">
-      <h3>🌀 แผนที่สภาพอากาศจาก Windy</h3>
-      <iframe src="https://embed.windy.com/embed.html?type=map&amp;location=coordinates&amp;metricRain=default&amp;metricTemp=default&amp;metricWind=default&amp;zoom=10&amp;overlay=radar&amp;product=radar&amp;level=surface&amp;lat=8.017&amp;lon=100.077&amp;detailLat=8.129&amp;detailLon=99.886&amp;detail=true"></iframe>
-    </div>
-  </div>
-
-  <script>
-    function updateTime() {
-      const now = new Date();
-      const options = { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-      document.getElementById('time').innerText = `เวลา: ${now.toLocaleTimeString('th-TH', options)}`;
-    }
-
-    async function fetchWeather() {
-      try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=8.322&longitude=99.949&current=temperature_2m,wind_speed_10m,weather_code&timezone=Asia%2FBangkok');
-        const data = await res.json();
-        const w = data.current;
-        const weatherDesc = {
-          0: 'แจ่มใส', 1: 'มีเมฆเล็กน้อย', 2: 'มีเมฆบางส่วน', 3: 'มีเมฆมาก',
-          45: 'หมอก', 48: 'หมอกน้ำแข็ง', 51: 'ฝนเล็กน้อย', 53: 'ฝนปานกลาง',
-          55: 'ฝนหนัก', 61: 'ฝนเบา', 63: 'ฝนปานกลาง', 65: 'ฝนหนัก',
-          80: 'ฝนเป็นช่วง', 95: 'พายุฝนฟ้าคะนอง', 99: 'พายุรุนแรง'
-        };
-        document.getElementById('temp').innerText = `🌡️ อุณหภูมิ: ${w.temperature_2m}°C`;
-        document.getElementById('wind').innerText = `🌬️ ลม: ${w.wind_speed_10m} km/h`;
-        document.getElementById('desc').innerText = `☁️ สภาพอากาศ: ${weatherDesc[w.weather_code] || 'ไม่ทราบ'}`;
-      } catch (e) {
-        document.getElementById('desc').innerText = '⚠️ ไม่สามารถโหลดข้อมูลอากาศ';
-      }
-    }
-
-    function refreshSnapshot() {
-      document.getElementById('snapshot').src = `snapshots/latest.jpg?${Date.now()}`;
-    }
-
-    updateTime();
-    fetchWeather();
-    refreshSnapshot();
-    setInterval(updateTime, 1000);
-    setInterval(refreshSnapshot, 5 * 60 * 1000);
-    setInterval(fetchWeather, 10 * 60 * 1000);
-  </script>
-</body>
-</html>
+    <!-- สตรีมกล้อง -->
+    <iframe
+      src="https://demo.flashphoner
