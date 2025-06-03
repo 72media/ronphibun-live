@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ตลาดร่อนพิบูลย์ - ภาพกล้องล่าสุด</title>
+  <title>ตลาดร่อนพิบูลย์ - กล้องและสภาพอากาศ</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Kanit', sans-serif;
-      background: #f3f4f6;
+      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
       text-align: center;
@@ -20,7 +20,6 @@
       color: white;
       padding: 1.5rem 0;
       font-size: 2rem;
-      font-weight: bold;
     }
 
     .container {
@@ -32,7 +31,7 @@
       height: auto;
       border-radius: 10px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
     }
 
     .weather {
@@ -41,19 +40,30 @@
       padding: 1.5rem 2rem;
       border-radius: 12px;
       box-shadow: 0 0 15px rgba(0,0,0,0.1);
-      margin-top: 1rem;
       font-size: 1.2rem;
       line-height: 1.8;
+      margin-bottom: 2rem;
+    }
+
+    .video-container iframe,
+    .map-container iframe {
+      width: 100%;
+      max-width: 800px;
+      height: 450px;
+      border-radius: 10px;
+      border: none;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
 
     .highlight {
-      font-weight: bold;
       color: #d63333;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <header>📍 ตลาดร่อนพิบูลย์ - ภาพกล้องล่าสุด</header>
+  <header>📍 ตลาดร่อนพิบูลย์ - กล้องและสภาพอากาศ</header>
 
   <div class="container">
     <img id="snapshot" class="snapshot" src="snapshots/latest.jpg" alt="ภาพล่าสุดจากกล้อง">
@@ -64,51 +74,54 @@
       <div id="wind">🌬️ ลม: ...</div>
       <div id="desc">☁️ สภาพอากาศ: ...</div>
     </div>
+
+    <div class="video-container">
+      <h3>🎥 กล้องถ่ายทอดสด</h3>
+      <iframe src="https://demo.flashphoner.com:8888/embed_player?urlServer=wss://demo.flashphoner.com:8443&amp;streamName=rtsp%3A%2F%2Fadmin%3Apk%400639544615%40ramrome.thddns.net%3A3381%2Fstream1&amp;mediaProviders=WebRTC,MSE" allowfullscreen></iframe>
+    </div>
+
+    <div class="map-container">
+      <h3>🌀 แผนที่สภาพอากาศจาก Windy</h3>
+      <iframe src="https://embed.windy.com/embed.html?type=map&amp;location=coordinates&amp;metricRain=default&amp;metricTemp=default&amp;metricWind=default&amp;zoom=10&amp;overlay=radar&amp;product=radar&amp;level=surface&amp;lat=8.017&amp;lon=100.077&amp;detailLat=8.129&amp;detailLon=99.886&amp;detail=true"></iframe>
+    </div>
   </div>
 
   <script>
-    // เวลาไทย
     function updateTime() {
       const now = new Date();
       const options = { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' };
       document.getElementById('time').innerText = `เวลา: ${now.toLocaleTimeString('th-TH', options)}`;
     }
 
-    // ข้อมูลอากาศ
     async function fetchWeather() {
       try {
         const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=8.322&longitude=99.949&current=temperature_2m,wind_speed_10m,weather_code&timezone=Asia%2FBangkok');
         const data = await res.json();
-        const weather = data.current;
+        const w = data.current;
         const weatherDesc = {
           0: 'แจ่มใส', 1: 'มีเมฆเล็กน้อย', 2: 'มีเมฆบางส่วน', 3: 'มีเมฆมาก',
           45: 'หมอก', 48: 'หมอกน้ำแข็ง', 51: 'ฝนเล็กน้อย', 53: 'ฝนปานกลาง',
           55: 'ฝนหนัก', 61: 'ฝนเบา', 63: 'ฝนปานกลาง', 65: 'ฝนหนัก',
           80: 'ฝนเป็นช่วง', 95: 'พายุฝนฟ้าคะนอง', 99: 'พายุรุนแรง'
         };
-        document.getElementById('temp').innerText = `🌡️ อุณหภูมิ: ${weather.temperature_2m}°C`;
-        document.getElementById('wind').innerText = `🌬️ ลม: ${weather.wind_speed_10m} km/h`;
-        document.getElementById('desc').innerText = `☁️ สภาพอากาศ: ${weatherDesc[weather.weather_code] || 'ไม่ทราบ'}`;
-      } catch (err) {
+        document.getElementById('temp').innerText = `🌡️ อุณหภูมิ: ${w.temperature_2m}°C`;
+        document.getElementById('wind').innerText = `🌬️ ลม: ${w.wind_speed_10m} km/h`;
+        document.getElementById('desc').innerText = `☁️ สภาพอากาศ: ${weatherDesc[w.weather_code] || 'ไม่ทราบ'}`;
+      } catch (e) {
         document.getElementById('desc').innerText = '⚠️ ไม่สามารถโหลดข้อมูลอากาศ';
       }
     }
 
-    // ป้องกันแคชภาพ
     function refreshSnapshot() {
-      const img = document.getElementById('snapshot');
-      img.src = `snapshots/latest.jpg?${new Date().getTime()}`;
+      document.getElementById('snapshot').src = `snapshots/latest.jpg?${Date.now()}`;
     }
 
-    // เรียกใช้งาน
     updateTime();
     fetchWeather();
     refreshSnapshot();
-
-    // ตั้งเวลาอัปเดต
     setInterval(updateTime, 1000);
-    setInterval(refreshSnapshot, 5 * 60 * 1000); // ทุก 5 นาที
-    setInterval(fetchWeather, 10 * 60 * 1000); // ทุก 10 นาที
+    setInterval(refreshSnapshot, 5 * 60 * 1000);
+    setInterval(fetchWeather, 10 * 60 * 1000);
   </script>
 </body>
 </html>
