@@ -1,74 +1,274 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ตลาดร่อนพิบูลย์ - ถ่ายทอดสด</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Kanit', sans-serif;
-      background-color: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>กล้องตลาดร่อนพิบูลย์+เรดาร์</title>
+    
+    <!-- Leaflet CSS และ HLS.js จาก CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <!-- แก้ไข: เปลี่ยน Leaflet กลับมาใช้ CDN เพื่อให้เปิดไฟล์จากเครื่องได้เลย -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #000; font-family: 'Tahoma', sans-serif; }
+        #map { width: 100%; height: 100vh; z-index: 1; }
+        
+        /* UI Top Bar */
+        .ui-top-container {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 25px;
+            border-radius: 50px;
+            border: 1px solid #1e90ff;
+            box-shadow: 0 0 20px rgba(30, 144, 255, 0.4);
+            white-space: nowrap;
+        }
 
-    header {
-      background-color: #007BFF;
-      color: white;
-      padding: 1rem;
-      width: 100%;
-      text-align: center;
-      font-size: 1.8rem;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
+        #live-clock {
+            color: #1e90ff;
+            font-weight: bold;
+            font-size: 15px;
+            border-right: 1px solid #444;
+            padding-right: 15px;
+            text-shadow: 0 0 8px rgba(30, 144, 255, 0.6);
+        }
 
-    .container {
-      max-width: 900px;
-      width: 100%;
-      padding: 20px;
-    }
+        .header-title { color: #ffffff; font-weight: bold; font-size: 15px; margin-right: 10px; }
 
-    iframe {
-      width: 100%;
-      border: none !important;       /* ลบขอบ */
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      margin-bottom: 20px;
-    }
+        .weather-btn {
+            background-color: #004080;
+            color: white;
+            border: 1px solid #1e90ff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: 0.3s ease;
+        }
+        .weather-btn:hover { background-color: #1e90ff; color: black; box-shadow: 0 0 10px #1e90ff; }
 
-    @media (max-width: 768px) {
-      header {
-        font-size: 1.4rem;
-      }
-      iframe {
-        height: 280px;
-      }
-    }
+        /* Weather Overlay */
+        #weather-overlay {
+            display: none;
+            position: absolute;
+            top: 85px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 15px;
+            border: 1px solid #1e90ff;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+        #weather-overlay img { width: 100%; border-radius: 8px; }
+        .close-btn { color: #ff4444; cursor: pointer; float: right; font-weight: bold; margin-bottom: 8px; }
 
-    @media (min-width: 769px) {
-      iframe {
-        height: 500px;
-      }
-    }
-  </style>
+        /* Video Popup */
+        .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
+        .leaflet-popup-tip { background: #1e90ff !important; }
+        .cam-label { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #fff; }
+        
+        /* ปรับขนาดวิดีโอให้ใหญ่ขึ้น */
+        .video-container {
+            width: 100%;
+            border-radius: 5px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 0 10px #000;
+        }
+        .video-container iframe {
+            display: block;
+            width: 100%;
+            height: 450px; /* ขยายความสูงของวิดีโอ */
+            border: 0;
+        }
+
+        /* Radar Panel */
+        #radar-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.88);
+            border: 1px solid #00e5ff;
+            border-radius: 16px;
+            padding: 10px 14px 12px 14px;
+            min-width: 210px;
+            box-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
+            transition: box-shadow 0.3s;
+        }
+        #radar-panel:hover { box-shadow: 0 0 28px rgba(0, 229, 255, 0.55); }
+
+        .radar-header { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+        .radar-icon { font-size: 18px; animation: pulse-icon 2s ease-in-out infinite; }
+        @keyframes pulse-icon { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.12); } }
+        .radar-title { color: #00e5ff; font-weight: bold; font-size: 13px; text-shadow: 0 0 8px rgba(0, 229, 255, 0.7); letter-spacing: 0.5px; }
+        .radar-toggle-btn { margin-left: auto; background: transparent; border: 1px solid #00e5ff; color: #00e5ff; border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.25s ease; }
+        .radar-toggle-btn:hover, .radar-toggle-btn.active { background: #00e5ff; color: #000; box-shadow: 0 0 8px #00e5ff; }
+        .radar-slider-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .radar-slider-label { color: #aaa; font-size: 11px; white-space: nowrap; }
+        #radar-opacity-slider { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 3px; background: linear-gradient(to right, #00e5ff 0%, #00e5ff var(--val, 70%), #333 var(--val, 70%), #333 100%); outline: none; cursor: pointer; transition: background 0.1s; }
+        #radar-opacity-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: #00e5ff; border: 2px solid #000; box-shadow: 0 0 6px #00e5ff; cursor: pointer; }
+        #radar-opacity-slider::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: #00e5ff; border: 2px solid #000; box-shadow: 0 0 6px #00e5ff; cursor: pointer; }
+        #radar-opacity-value { color: #00e5ff; font-size: 11px; font-weight: bold; min-width: 30px; text-align: right; }
+        .radar-status { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
+        .radar-dot { width: 7px; height: 7px; border-radius: 50%; background: #00e5ff; box-shadow: 0 0 6px #00e5ff; animation: blink-dot 1.5s ease-in-out infinite; }
+        @keyframes blink-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        .radar-status-text { color: #888; font-size: 10px; }
+    </style>
+
+    <!-- Dify Chatbot Scripts -->
+    <script>
+        window.difyChatbotConfig = {
+         token: 'ZmJkVbqzJi2hl5eO',
+         baseUrl: 'https://122.8.149.221',
+         remove_webapp_brand: true,
+         systemVariables: {},
+         userVariables: {
+           name: 'สายฟ้า',
+           avatar_url: 'https://www.tmd.go.th/media/ServicePages/Identities/Mascots/saifah.png',
+         },
+         containerProps: {},
+        }
+    </script>
+    <script src="https://122.8.149.221/embed.min.js" id="ZmJkVbqzJi2hl5eO" defer></script>
 </head>
 <body>
-  <header>📍 ตลาดร่อนพิบูลย์ - ถ่ายทอดสด</header>
-  <div class="container">
-    <!-- สตรีมกล้อง -->
-    <iframe
-      src="https://demo.flashphoner.com:8888/embed_player?urlServer=wss://demo.flashphoner.com:8443&streamName=rtsp%3A%2F%2Fadmin%3Apk%400639544615%40ramrome.thddns.net%3A3381%2Fstream1&mediaProviders=WebRTC,MSE"
-      allowfullscreen>
-    </iframe>
 
-    <!-- แผนที่สภาพอากาศ -->
-    <iframe
-      src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=10&overlay=radar&product=radar&level=surface&lat=8.017&lon=100.077&detailLat=8.129&detailLon=99.886&detail=true"
-      height="450">
-    </iframe>
-  </div>
+    <div class="ui-top-container">
+        <div id="live-clock">กำลังโหลดเวลา...</div>
+        <div class="header-title">กล้องตลาดร่อนพิบูลย์+เรดาร์</div>
+        <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
+    </div>
+
+    <div id="radar-panel">
+        <div class="radar-header">
+            <span class="radar-icon">🌧️</span>
+            <span class="radar-title">เรดาร์ตำบลเมืองคอน</span>
+            <button class="radar-toggle-btn active" id="radarToggleBtn" onclick="toggleRadar()">เปิด</button>
+        </div>
+        <div class="radar-slider-row">
+            <span class="radar-slider-label">โปร่งใส:</span>
+            <input type="range" id="radar-opacity-slider" min="0" max="100" value="70" oninput="updateRadarOpacity(this.value)">
+            <span id="radar-opacity-value">70%</span>
+        </div>
+        <div class="radar-status">
+            <div class="radar-dot" id="radarDot"></div>
+            <span class="radar-status-text" id="radarStatusText">กำลังแสดงกลุ่มฝน...</span>
+        </div>
+    </div>
+
+    <div id="weather-overlay">
+        <span class="close-btn" onclick="toggleWeather()">[ปิด X]</span>
+        <img src="https://www.yr.no/en/content/2-1150921/meteogram.svg?mode=dark&t=1773373548447" alt="Meteogram">
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // 1. เวลาไทย
+        function updateThaiClock() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('live-clock').textContent = now.toLocaleDateString('th-TH', options);
+        }
+        setInterval(updateThaiClock, 1000);
+        updateThaiClock();
+
+        // 2. แผนที่ - ปรับมุมมองเริ่มต้นให้เห็นเรดาร์เต็มที่
+        var radarBounds = [[7.595929609239565, 98.66181095811945], [9.697971242406755, 100.6377990348955]];
+        
+        // กำหนดพิกัดกลางและซูมให้เห็นภาพรวมของภาคใต้ (เพื่อให้เห็นเรดาร์เต็มพื้นที่)
+        var map = L.map('map', {zoomControl: false}).setView([8.65, 99.5], 8);
+        L.control.zoom({position: 'topright'}).addTo(map);
+
+        // แผนที่ฐาน (ไม่มี Dark Mode ที่มีปัญหา API Key)
+        var satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '© Google' });
+        var opentopoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' });
+
+        var baseMaps = { "🛰️ Google Satellite": satelliteLayer, "⛰️ OpenTopoMap": opentopoLayer };
+        L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);
+        satelliteLayer.addTo(map);
+
+        // 3. ไอคอนกล้อง
+        var camIcon = L.icon({
+            iconUrl: "https://i.ibb.co/TxG7KC9N/camera.png",
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16]
+        });
+
+        // 4. หมุดกล้องเดียว: ตลาด 100 ปี (vigi c340) - ขยายขนาดป๊อปอัป
+        var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
+        marker1.bindPopup(`
+            <div class="cam-label">📡 ตลาด 100 ปี (vigi c340)</div>
+            <div class="video-container">
+                <iframe
+                  src="https://rtsp.me/embed/bTvHkWA4knv12Keh/"
+                  title="RTSP streaming player"
+                  allow="fullscreen; autoplay"
+                  allowfullscreen>
+                  Iframes not supported. Stream <a href="https://rtsp.me/" title="rtsp video streaming service">rtsp.me</a> player
+                </iframe>
+            </div>
+        `, { maxWidth: 800, minWidth: 500 }); // ขยายกรอบป๊อปอัปให้กว้างขึ้น
+
+        function toggleWeather() {
+            document.getElementById('weather-overlay').style.display = 
+                document.getElementById('weather-overlay').style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 5. Radar
+        var radarLayer = L.imageOverlay('https://semet.uk/loop/NSTLoop.gif', radarBounds, { opacity: 0.7, interactive: false }).addTo(map);
+        var radarVisible = true;
+
+        function toggleRadar() {
+            var btn = document.getElementById('radarToggleBtn');
+            var dot = document.getElementById('radarDot');
+            var status = document.getElementById('radarStatusText');
+            var slider = document.getElementById('radar-opacity-slider');
+            if (radarVisible) {
+                radarLayer.setOpacity(0);
+                radarVisible = false;
+                btn.textContent = 'ปิด'; btn.classList.remove('active');
+                dot.style.animationPlayState = 'paused'; dot.style.opacity = '0.2';
+                status.textContent = 'ปิดการแสดงเรดาร์';
+                slider.disabled = true; slider.style.opacity = '0.4';
+            } else {
+                var op = parseInt(slider.value) / 100;
+                radarLayer.setOpacity(op);
+                radarVisible = true;
+                btn.textContent = 'เปิด'; btn.classList.add('active');
+                dot.style.animationPlayState = 'running'; dot.style.opacity = '';
+                status.textContent = 'กำลังแสดงกลุ่มฝน...';
+                slider.disabled = false; slider.style.opacity = '1';
+            }
+        }
+
+        function updateRadarOpacity(val) {
+            var pct = parseInt(val);
+            document.getElementById('radar-opacity-slider').style.setProperty('--val', pct + '%');
+            document.getElementById('radar-opacity-value').textContent = pct + '%';
+            if (radarVisible) radarLayer.setOpacity(pct / 100);
+        }
+        updateRadarOpacity(70);
+
+        // ไม่เปิด popup อัตโนมัติ เพื่อให้เห็นเรดาร์เต็มจอตั้งแต่แรก
+        // marker1.openPopup(); 
+    </script>
 </body>
 </html>
