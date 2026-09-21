@@ -5,18 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>กล้องตลาดร่อนพิบูลย์+เรดาร์</title>
     
-    <!-- Leaflet CSS และ HLS.js จาก CDN -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    
-    <!-- แก้ไข: เปลี่ยน Leaflet กลับมาใช้ CDN เพื่อให้เปิดไฟล์จากเครื่องได้เลย -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #000; font-family: 'Tahoma', sans-serif; }
         #map { width: 100%; height: 100vh; z-index: 1; }
         
-        /* UI Top Bar */
         .ui-top-container {
             position: absolute;
             top: 15px;
@@ -58,7 +54,6 @@
         }
         .weather-btn:hover { background-color: #1e90ff; color: black; box-shadow: 0 0 10px #1e90ff; }
 
-        /* Weather Overlay */
         #weather-overlay {
             display: none;
             position: absolute;
@@ -77,12 +72,10 @@
         #weather-overlay img { width: 100%; border-radius: 8px; }
         .close-btn { color: #ff4444; cursor: pointer; float: right; font-weight: bold; margin-bottom: 8px; }
 
-        /* Video Popup */
         .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
         .leaflet-popup-tip { background: #1e90ff !important; }
         .cam-label { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #fff; }
         
-        /* ปรับขนาดวิดีโอให้ใหญ่ขึ้น */
         .video-container {
             width: 100%;
             border-radius: 5px;
@@ -93,11 +86,10 @@
         .video-container iframe {
             display: block;
             width: 100%;
-            height: 450px; /* ขยายความสูงของวิดีโอ */
+            height: 450px;
             border: 0;
         }
 
-        /* Radar Panel */
         #radar-panel {
             position: absolute;
             top: 15px;
@@ -131,7 +123,6 @@
         .radar-status-text { color: #888; font-size: 10px; }
     </style>
 
-    <!-- Dify Chatbot Scripts -->
     <script>
         window.difyChatbotConfig = {
          token: 'ZmJkVbqzJi2hl5eO',
@@ -189,14 +180,11 @@
         setInterval(updateThaiClock, 1000);
         updateThaiClock();
 
-        // 2. แผนที่ - ปรับมุมมองเริ่มต้นให้เห็นเรดาร์เต็มที่
+        // 2. แผนที่
         var radarBounds = [[7.595929609239565, 98.66181095811945], [9.697971242406755, 100.6377990348955]];
-        
-        // กำหนดพิกัดกลางและซูมให้เห็นภาพรวมของภาคใต้ (เพื่อให้เห็นเรดาร์เต็มพื้นที่)
         var map = L.map('map', {zoomControl: false}).setView([8.65, 99.5], 8);
         L.control.zoom({position: 'topright'}).addTo(map);
 
-        // แผนที่ฐาน (ไม่มี Dark Mode ที่มีปัญหา API Key)
         var satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '© Google' });
         var opentopoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenTopoMap' });
 
@@ -212,20 +200,21 @@
             popupAnchor: [0, -16]
         });
 
-        // 4. หมุดกล้องเดียว: ตลาด 100 ปี (vigi c340) - ขยายขนาดป๊อปอัป
+        // 4. หมุดกล้องเดียว: ตลาด 100 ปี (vigi c340) - ใช้ YouTube Live
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(`
-            <div class="cam-label">📡 ตลาด 100 ปี (vigi c340)</div>
+            <div class="cam-label">📡 ตลาด 100 ปี ร่อนพิบูลย์(TP-link vigi c340)</div>
             <div class="video-container">
                 <iframe
-                  src="https://rtsp.me/embed/bTvHkWA4knv12Keh/"
-                  title="RTSP streaming player"
-                  allow="fullscreen; autoplay"
+                  src="https://www.youtube.com/embed/WWqcC9JKLOM?si=ISKjTWFNf54173VS"
+                  title="YouTube video player"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerpolicy="strict-origin-when-cross-origin"
                   allowfullscreen>
-                  Iframes not supported. Stream <a href="https://rtsp.me/" title="rtsp video streaming service">rtsp.me</a> player
                 </iframe>
             </div>
-        `, { maxWidth: 800, minWidth: 500 }); // ขยายกรอบป๊อปอัปให้กว้างขึ้น
+        `, { maxWidth: 800, minWidth: 500 });
 
         function toggleWeather() {
             document.getElementById('weather-overlay').style.display = 
@@ -266,9 +255,6 @@
             if (radarVisible) radarLayer.setOpacity(pct / 100);
         }
         updateRadarOpacity(70);
-
-        // ไม่เปิด popup อัตโนมัติ เพื่อให้เห็นเรดาร์เต็มจอตั้งแต่แรก
-        // marker1.openPopup(); 
     </script>
 </body>
 </html>
