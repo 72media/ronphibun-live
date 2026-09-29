@@ -10,38 +10,73 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #000; font-family: 'Tahoma', sans-serif; }
-        #map { width: 100%; height: 100vh; z-index: 1; }
+        :root {
+            --ui-blue: #1e90ff;
+            --radar-cyan: #00e5ff;
+            --glass-bg: rgba(4, 15, 30, 0.68);
+            --glass-border: rgba(80, 190, 255, 0.55);
+            --glass-shadow: 0 10px 35px rgba(0, 0, 0, 0.42), 0 0 22px rgba(30, 144, 255, 0.22);
+            --topbar-offset: 95px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: #000; font-family: 'Tahoma', sans-serif;
+        }
+        #map { width: 100%; height: 100dvh; min-height: 100vh; z-index: 1; }
         
         /* UI Top Bar */
         .ui-top-container {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; display: flex; align-items: center; gap: 15px;
-            background: rgba(0, 0, 0, 0.85); padding: 10px 25px; border-radius: 50px;
-            border: 1px solid #1e90ff; box-shadow: 0 0 20px rgba(30, 144, 255, 0.4);
+            position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+            z-index: 1000; display: flex; align-items: center; gap: 14px;
+            width: max-content; max-width: calc(100% - 24px); padding: 10px 18px;
+            border: 1px solid var(--glass-border); border-radius: 22px;
+            background: var(--glass-bg); box-shadow: var(--glass-shadow);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            backdrop-filter: blur(16px) saturate(140%);
             white-space: nowrap;
         }
         #live-clock {
-            color: #1e90ff; font-weight: bold; font-size: 15px;
-            border-right: 1px solid #444; padding-right: 15px;
+            color: var(--ui-blue); font-weight: bold; font-size: 15px;
+            border-right: 1px solid rgba(255, 255, 255, 0.2); padding-right: 14px;
             text-shadow: 0 0 8px rgba(30, 144, 255, 0.6);
         }
-        .header-title { color: #ffffff; font-weight: bold; font-size: 15px; margin-right: 10px; }
+        .radar-panel-inline {
+            display: flex; align-items: center; gap: 8px; min-width: 0;
+            padding-right: 14px; border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .radar-panel-inline .radar-header { margin-bottom: 0; gap: 6px; }
+        .radar-panel-inline .radar-icon { font-size: 16px; }
+        .radar-panel-inline .radar-title { font-size: 12px; }
+        .radar-panel-inline .radar-toggle-btn { padding: 3px 9px; }
+        .radar-panel-inline .radar-slider-row { margin-top: 0; gap: 6px; }
+        .radar-panel-inline .radar-slider-label { display: none; }
+        .radar-panel-inline #radar-opacity-slider { width: 72px; flex: none; }
+        .radar-panel-inline .radar-status { margin-top: 0; gap: 5px; }
+        .radar-panel-inline .radar-status-text { display: none; }
+        .header-title {
+            color: #ffffff; font-weight: bold; font-size: 15px; margin-right: 10px;
+            min-width: 0; overflow: hidden; text-overflow: ellipsis;
+        }
         .weather-btn {
-            background-color: #004080; color: white; border: 1px solid #1e90ff;
-            padding: 6px 18px; border-radius: 20px; cursor: pointer;
+            background: linear-gradient(135deg, rgba(0, 64, 128, 0.9), rgba(0, 110, 190, 0.78));
+            color: white; border: 1px solid rgba(30, 144, 255, 0.9);
+            padding: 7px 16px; border-radius: 20px; cursor: pointer;
             font-size: 14px; font-weight: bold; transition: 0.3s ease;
+            white-space: nowrap; flex-shrink: 0;
         }
         .weather-btn:hover { background-color: #1e90ff; color: black; box-shadow: 0 0 10px #1e90ff; }
 
         /* Weather Overlay */
         #weather-overlay {
-            display: none; position: absolute; top: 85px; left: 50%;
+            display: none; position: absolute; top: var(--topbar-offset); left: 50%;
             transform: translateX(-50%); z-index: 1001;
-            background: rgba(0, 0, 0, 0.95); padding: 15px;
-            border: 1px solid #1e90ff; border-radius: 15px;
-            width: 90%; max-width: 800px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            width: min(90%, 800px); max-height: calc(100dvh - var(--topbar-offset) - 18px);
+            overflow-y: auto; padding: 15px; border: 1px solid var(--glass-border);
+            border-radius: 18px; background: rgba(0, 0, 0, 0.72);
+            box-shadow: var(--glass-shadow);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            backdrop-filter: blur(16px) saturate(140%);
         }
         #weather-overlay img { width: 100%; border-radius: 8px; }
         .close-btn { color: #ff4444; cursor: pointer; float: right; font-weight: bold; margin-bottom: 8px; }
@@ -51,7 +86,10 @@
         .leaflet-popup-tip { background: #1e90ff !important; }
         .cam-label { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #fff; }
         .video-container { width: 100%; border-radius: 5px; overflow: hidden; background: #000; box-shadow: 0 0 10px #000; }
-        .video-container iframe { display: block; width: 100%; height: 450px; border: 0; }
+        .video-container iframe {
+            display: block; width: 100%; height: min(450px, 56.25vw);
+            min-height: 220px; aspect-ratio: 16 / 9; border: 0;
+        }
 
         /* ===== Animation สำหรับ divIcon (inline ใช้ตัวนี้) ===== */
         @keyframes camPulse {
@@ -59,15 +97,7 @@
             50%      { transform: scale(1.18); box-shadow: 0 0 20px rgba(30,144,255,1),   inset 0 0 10px rgba(30,144,255,0.7); }
         }
 
-        /* Radar Panel */
-        #radar-panel {
-            position: absolute; top: 15px; left: 15px; z-index: 1000;
-            background: rgba(0, 0, 0, 0.88); border: 1px solid #00e5ff;
-            border-radius: 16px; padding: 10px 14px 12px 14px;
-            min-width: 210px; box-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
-            transition: box-shadow 0.3s;
-        }
-        #radar-panel:hover { box-shadow: 0 0 28px rgba(0, 229, 255, 0.55); }
+        /* Radar controls integrated into the top bar */
         .radar-header { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
         .radar-icon { font-size: 18px; animation: pulse-icon 2s ease-in-out infinite; }
         @keyframes pulse-icon { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.12); } }
@@ -83,7 +113,78 @@
         .radar-status { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
         .radar-dot { width: 7px; height: 7px; border-radius: 50%; background: #00e5ff; box-shadow: 0 0 6px #00e5ff; animation: blink-dot 1.5s ease-in-out infinite; }
         @keyframes blink-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-        .radar-status-text { color: #888; font-size: 10px; }
+        .radar-status-text { color: #aab5c2; font-size: 10px; }
+        button:focus-visible, input:focus-visible {
+            outline: 2px solid #fff; outline-offset: 3px;
+        }
+        .leaflet-top.leaflet-right { top: var(--topbar-offset); }
+
+        @media (max-width: 900px) {
+            .ui-top-container { gap: 10px; padding: 9px 13px; }
+            .header-title { font-size: 13px; }
+            .weather-btn { padding: 6px 12px; font-size: 12px; }
+        }
+
+        @media (max-width: 760px) {
+            :root { --topbar-offset: 142px; }
+            .ui-top-container {
+                display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+                top: max(8px, env(safe-area-inset-top)); width: calc(100% - 16px);
+                max-width: calc(100% - 16px); gap: 8px 9px; padding: 9px 10px;
+                border-radius: 17px; white-space: normal;
+            }
+            #live-clock {
+                grid-column: 1 / -1; width: 100%; padding: 0 0 7px;
+                border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+                text-align: center; font-size: clamp(10px, 2.8vw, 13px);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            }
+            .radar-panel-inline {
+                grid-column: 1 / 3; gap: 5px; padding-right: 7px;
+                justify-content: flex-start; border-right-color: rgba(255, 255, 255, 0.2);
+            }
+            .radar-panel-inline .radar-title { display: none; }
+            .radar-panel-inline .radar-header { gap: 5px; }
+            .radar-panel-inline #radar-opacity-slider { width: clamp(46px, 16vw, 72px); }
+            .radar-panel-inline #radar-opacity-value { min-width: 25px; }
+            .header-title {
+                grid-column: 1 / -1; grid-row: 3; width: 100%; margin: 0;
+                text-align: center; font-size: clamp(10px, 3.1vw, 13px);
+            }
+            .weather-btn { grid-column: 3; grid-row: 2; padding: 6px 9px; font-size: 11px; }
+            .leaflet-top.leaflet-right { top: var(--topbar-offset); }
+            #weather-overlay {
+                top: calc(var(--topbar-offset) + 8px); width: calc(100% - 20px);
+                max-height: calc(100dvh - var(--topbar-offset) - 18px); padding: 10px;
+            }
+            .video-container iframe { height: auto; min-height: 0; }
+        }
+
+        @media (max-width: 420px) {
+            :root { --topbar-offset: 166px; }
+            .ui-top-container { grid-template-columns: minmax(0, 1fr) auto; }
+            .radar-panel-inline { grid-column: 1; }
+            .weather-btn { grid-column: 2; }
+            .header-title { grid-row: 3; }
+            .radar-panel-inline #radar-opacity-slider { width: 46px; }
+            .weather-btn { padding: 6px 8px; font-size: 10px; }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            :root { --topbar-offset: 86px; }
+            .ui-top-container { padding: 6px 10px; gap: 7px; }
+            #live-clock { font-size: 10px; }
+            .header-title { font-size: 11px; }
+            .weather-btn { padding: 5px 8px; font-size: 10px; }
+            #weather-overlay { top: calc(var(--topbar-offset) + 6px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+            }
+        }
     </style>
 
     <script>
@@ -105,25 +206,26 @@
 
     <div class="ui-top-container">
         <div id="live-clock">กำลังโหลดเวลา...</div>
-        <div class="header-title">กล้องตลาดร่อนพิบูลย์+เรดาร์</div>
-        <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
-    </div>
 
-    <div id="radar-panel">
-        <div class="radar-header">
-            <span class="radar-icon">🌧️</span>
-            <span class="radar-title">เรดาร์ตำบลเมืองคอน</span>
-            <button class="radar-toggle-btn active" id="radarToggleBtn" onclick="toggleRadar()">เปิด</button>
+        <div class="radar-panel-inline" aria-label="แผงควบคุมเรดาร์">
+            <div class="radar-header">
+                <span class="radar-icon">🌧️</span>
+                <span class="radar-title">เรดาร์ตำบลเมืองคอน</span>
+                <button class="radar-toggle-btn active" id="radarToggleBtn" onclick="toggleRadar()">เปิด</button>
+            </div>
+            <div class="radar-slider-row">
+                <span class="radar-slider-label">โปร่งใส:</span>
+                <input type="range" id="radar-opacity-slider" min="0" max="100" value="70" oninput="updateRadarOpacity(this.value)">
+                <span id="radar-opacity-value">70%</span>
+            </div>
+            <div class="radar-status" title="สถานะเรดาร์">
+                <div class="radar-dot" id="radarDot"></div>
+                <span class="radar-status-text" id="radarStatusText">กำลังแสดงกลุ่มฝน...</span>
+            </div>
         </div>
-        <div class="radar-slider-row">
-            <span class="radar-slider-label">โปร่งใส:</span>
-            <input type="range" id="radar-opacity-slider" min="0" max="100" value="70" oninput="updateRadarOpacity(this.value)">
-            <span id="radar-opacity-value">70%</span>
-        </div>
-        <div class="radar-status">
-            <div class="radar-dot" id="radarDot"></div>
-            <span class="radar-status-text" id="radarStatusText">กำลังแสดงกลุ่มฝน...</span>
-        </div>
+
+        <div class="header-title">กล้องตลาด 100ปี ร่อนพิบูลย์+เรดาร์</div>
+        <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
     </div>
 
     <div id="weather-overlay">
@@ -178,7 +280,7 @@
         // ========== 4. หมุดกล้อง: ตลาด 100 ปี ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
-            '<div class="cam-label">📡 ตลาด 100 ปี (vigi c340)</div>' +
+            '<div class="cam-label">สดจากช่องยูทูป</div>' +
             '<div class="video-container">' +
                 '<iframe src="https://www.youtube.com/embed/tqx5v9m_Kx0?si=MIbLNpZH-nKxhJjt" ' +
                     'title="YouTube video player" frameborder="0" ' +
@@ -186,7 +288,10 @@
                     'referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>' +
                 '</iframe>' +
             '</div>',
-            { maxWidth: 800, minWidth: 500 }
+            {
+                maxWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 24, 420) : 800,
+                minWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 48, 300) : 500
+            }
         );
 
         // (ชั่วคราว) เปิด popup อัตโนมัติเพื่อทดสอบว่าหมุดอยู่ตรงไหน — ลบบรรทัดนี้ออกได้หลังทดสอบ
