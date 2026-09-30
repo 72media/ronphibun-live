@@ -71,8 +71,8 @@
         #weather-overlay {
             display: none; position: absolute; top: var(--topbar-offset); left: 50%;
             transform: translateX(-50%); z-index: 1001;
-            width: min(90%, 800px); max-height: calc(100dvh - var(--topbar-offset) - 18px);
-            overflow-y: auto; padding: 15px; border: 1px solid var(--glass-border);
+            width: min(96%, 1100px); max-height: calc(100dvh - var(--topbar-offset) - 18px);
+            overflow-y: auto; padding: 18px; border: 1px solid var(--glass-border);
             border-radius: 18px; background: rgba(0, 0, 0, 0.72);
             box-shadow: var(--glass-shadow);
             -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -114,6 +114,45 @@
         .radar-dot { width: 7px; height: 7px; border-radius: 50%; background: #00e5ff; box-shadow: 0 0 6px #00e5ff; animation: blink-dot 1.5s ease-in-out infinite; }
         @keyframes blink-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
         .radar-status-text { color: #aab5c2; font-size: 10px; }
+        /* Loading states: weather image and radar overlay */
+        .loading-state {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            min-height: 90px; color: #b9eaff; font-size: 12px; text-align: center;
+        }
+        .loading-spinner {
+            width: 18px; height: 18px; flex: 0 0 18px;
+            border: 2px solid rgba(0, 229, 255, 0.25);
+            border-top-color: var(--radar-cyan); border-right-color: var(--ui-blue);
+            border-radius: 50%; animation: loadingSpin 0.8s linear infinite;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+        }
+        @keyframes loadingSpin { to { transform: rotate(360deg); } }
+        .weather-skeleton {
+            position: relative; min-height: 240px; overflow: hidden; border-radius: 8px;
+            background: linear-gradient(100deg, rgba(255,255,255,0.06) 25%, rgba(100,210,255,0.18) 37%, rgba(255,255,255,0.06) 63%);
+            background-size: 400% 100%; animation: skeletonShimmer 1.5s ease-in-out infinite;
+        }
+        .weather-skeleton::after {
+            content: ''; position: absolute; inset: 18px; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px; box-shadow: 0 36px 0 rgba(255,255,255,0.07), 0 72px 0 rgba(255,255,255,0.05), 0 108px 0 rgba(255,255,255,0.04);
+        }
+        @keyframes skeletonShimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+        .weather-error {
+            display: none; padding: 18px 10px; color: #ffb4b4; text-align: center; font-size: 12px;
+        }
+        .retry-btn {
+            margin-top: 10px; padding: 5px 12px; border: 1px solid var(--radar-cyan);
+            border-radius: 14px; background: rgba(0, 229, 255, 0.12); color: var(--radar-cyan);
+            cursor: pointer; font-size: 11px; font-weight: bold;
+        }
+        .retry-btn:hover { background: var(--radar-cyan); color: #001018; }
+        .radar-loading-spinner { display: none; width: 10px; height: 10px; border-width: 1.5px; }
+        .radar-panel-inline.is-loading .radar-loading-spinner { display: inline-block; }
+        .radar-panel-inline.is-loading .radar-dot { display: none; }
+        .radar-panel-inline.is-error .radar-dot { background: #ff6565; box-shadow: 0 0 6px #ff6565; animation: none; }
+        .radar-retry-btn { display: none; margin: 0; padding: 2px 7px; font-size: 10px; }
+        .radar-panel-inline.is-error .radar-retry-btn { display: inline-block; }
+
         button:focus-visible, input:focus-visible {
             outline: 2px solid #fff; outline-offset: 3px;
         }
@@ -220,7 +259,9 @@
             </div>
             <div class="radar-status" title="สถานะเรดาร์">
                 <div class="radar-dot" id="radarDot"></div>
-                <span class="radar-status-text" id="radarStatusText">กำลังแสดงกลุ่มฝน...</span>
+                <span class="loading-spinner radar-loading-spinner" aria-hidden="true"></span>
+                <span class="radar-status-text" id="radarStatusText">กำลังโหลดเรดาร์...</span>
+                <button class="retry-btn radar-retry-btn" onclick="retryRadar()">ลองใหม่</button>
             </div>
         </div>
 
@@ -228,9 +269,16 @@
         <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
     </div>
 
-    <div id="weather-overlay">
+    <div id="weather-overlay" aria-live="polite">
         <span class="close-btn" onclick="toggleWeather()">[ปิด X]</span>
-        <img src="https://www.yr.no/en/content/2-1150921/meteogram.svg?mode=dark&t=1773373548447" alt="Meteogram">
+        <div class="weather-skeleton" id="weatherSkeleton" aria-label="กำลังโหลดข้อมูลสภาพอากาศ">
+            <div class="loading-state"><span class="loading-spinner"></span><span>กำลังโหลดข้อมูลสภาพอากาศ...</span></div>
+        </div>
+        <div class="weather-error" id="weatherError">
+            ไม่สามารถโหลดข้อมูลสภาพอากาศได้<br>
+            <button class="retry-btn" onclick="retryWeather()">ลองโหลดใหม่</button>
+        </div>
+        <img id="weatherImage" src="https://www.yr.no/en/content/2-1150921/meteogram.svg?mode=dark&t=1773373548447" alt="Meteogram" onload="weatherLoaded()" onerror="weatherFailed()">
     </div>
 
     <div id="map"></div>
@@ -297,14 +345,65 @@
         // (ชั่วคราว) เปิด popup อัตโนมัติเพื่อทดสอบว่าหมุดอยู่ตรงไหน — ลบบรรทัดนี้ออกได้หลังทดสอบ
         // marker1.openPopup();
 
+        function setWeatherLoading() {
+            document.getElementById('weatherSkeleton').style.display = 'block';
+            document.getElementById('weatherError').style.display = 'none';
+            document.getElementById('weatherImage').style.display = 'none';
+        }
+        function weatherLoaded() {
+            document.getElementById('weatherSkeleton').style.display = 'none';
+            document.getElementById('weatherError').style.display = 'none';
+            document.getElementById('weatherImage').style.display = 'block';
+        }
+        function weatherFailed() {
+            document.getElementById('weatherSkeleton').style.display = 'none';
+            document.getElementById('weatherImage').style.display = 'none';
+            document.getElementById('weatherError').style.display = 'block';
+        }
+        function retryWeather() {
+            setWeatherLoading();
+            var image = document.getElementById('weatherImage');
+            var baseUrl = image.src.split('&reload=')[0].split('&retry=')[0];
+            image.src = baseUrl + '&retry=' + Date.now();
+        }
         function toggleWeather() {
             var el = document.getElementById('weather-overlay');
-            el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+            var opening = el.style.display !== 'block';
+            el.style.display = opening ? 'block' : 'none';
+            if (opening) {
+                var image = document.getElementById('weatherImage');
+                if (!image.complete || image.naturalWidth === 0) setWeatherLoading();
+            }
         }
+        setWeatherLoading();
 
         // ========== 5. Radar ==========
-        var radarLayer = L.imageOverlay('https://semet.uk/loop/NSTLoop.gif', radarBounds, { opacity: 0.7, interactive: false }).addTo(map);
+        var radarUrl = 'https://semet.uk/loop/NSTLoop.gif';
+        var radarLayer = L.imageOverlay(radarUrl, radarBounds, { opacity: 0.7, interactive: false }).addTo(map);
         var radarVisible = true;
+        var radarPanel = document.querySelector('.radar-panel-inline');
+
+        function setRadarLoading() {
+            radarPanel.classList.add('is-loading');
+            radarPanel.classList.remove('is-error');
+            document.getElementById('radarStatusText').textContent = 'กำลังโหลดเรดาร์...';
+        }
+        function setRadarReady() {
+            radarPanel.classList.remove('is-loading', 'is-error');
+            document.getElementById('radarStatusText').textContent = 'กำลังแสดงกลุ่มฝน...';
+        }
+        function setRadarError() {
+            radarPanel.classList.remove('is-loading');
+            radarPanel.classList.add('is-error');
+            document.getElementById('radarStatusText').textContent = 'โหลดเรดาร์ไม่สำเร็จ';
+        }
+        function retryRadar() {
+            setRadarLoading();
+            radarLayer.setUrl(radarUrl + '?reload=' + Date.now());
+        }
+        radarLayer.on('load', setRadarReady);
+        radarLayer.on('error', setRadarError);
+        setRadarLoading();
 
         function toggleRadar() {
             var btn = document.getElementById('radarToggleBtn');
@@ -324,8 +423,14 @@
                 radarVisible = true;
                 btn.textContent = 'เปิด'; btn.classList.add('active');
                 dot.style.animationPlayState = 'running'; dot.style.opacity = '';
-                status.textContent = 'กำลังแสดงกลุ่มฝน...';
                 slider.disabled = false; slider.style.opacity = '1';
+                if (radarPanel.classList.contains('is-error')) {
+                    status.textContent = 'โหลดเรดาร์ไม่สำเร็จ';
+                } else if (radarPanel.classList.contains('is-loading')) {
+                    status.textContent = 'กำลังโหลดเรดาร์...';
+                } else {
+                    status.textContent = 'กำลังแสดงกลุ่มฝน...';
+                }
             }
         }
 
