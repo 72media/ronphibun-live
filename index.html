@@ -81,14 +81,34 @@
         #weather-overlay img { width: 100%; border-radius: 8px; }
         .close-btn { color: #ff4444; cursor: pointer; float: right; font-weight: bold; margin-bottom: 8px; }
 
-        /* Video Popup */
-        .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
-        .leaflet-popup-tip { background: #1e90ff !important; }
-        .cam-label { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #fff; }
-        .video-container { width: 100%; border-radius: 5px; overflow: hidden; background: #000; box-shadow: 0 0 10px #000; }
+        /* Video Popup: กลมกลืนกับแผนที่และไม่บังแผงเรดาร์ */
+        .camera-popup .leaflet-popup-content-wrapper {
+            width: min(460px, calc(100vw - 32px));
+            padding: 0; overflow: hidden; border: 1px solid rgba(80, 190, 255, 0.75);
+            border-radius: 16px; background: rgba(2, 10, 22, 0.96) !important;
+            color: #dff6ff !important; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.58), 0 0 18px rgba(30, 144, 255, 0.28);
+        }
+        .camera-popup .leaflet-popup-content { width: auto !important; margin: 0; }
+        .camera-popup .leaflet-popup-close-button {
+            z-index: 2; top: 7px !important; right: 9px !important; width: 28px !important; height: 28px !important;
+            border-radius: 50%; color: #dff6ff !important; background: rgba(0, 0, 0, 0.48);
+            font: bold 22px/25px Arial, sans-serif !important; text-align: center;
+        }
+        .camera-popup .leaflet-popup-close-button:hover { color: #fff !important; background: rgba(30, 144, 255, 0.75); }
+        .camera-popup .leaflet-popup-tip { background: #071a2d !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.25); }
+        .cam-label {
+            padding: 12px 42px 11px 14px; text-align: left; font-weight: bold; font-size: 14px;
+            letter-spacing: 0.2px; color: #fff; background: linear-gradient(135deg, rgba(7, 47, 82, 0.96), rgba(2, 20, 38, 0.96));
+            border-bottom: 1px solid rgba(80, 190, 255, 0.35);
+        }
+        .video-container { width: 100%; overflow: hidden; background: #000; }
         .video-container iframe {
-            display: block; width: 100%; height: min(450px, 56.25vw);
-            min-height: 220px; aspect-ratio: 16 / 9; border: 0;
+            display: block; width: 100%; height: auto; min-height: 0;
+            aspect-ratio: 16 / 9; border: 0;
+        }
+        @media (max-width: 600px) {
+            .camera-popup .leaflet-popup-content-wrapper { width: calc(100vw - 32px); border-radius: 13px; }
+            .cam-label { padding: 10px 38px 9px 12px; font-size: 13px; }
         }
 
         /* ===== Animation สำหรับ divIcon (inline ใช้ตัวนี้) ===== */
@@ -328,17 +348,22 @@
         // ========== 4. หมุดกล้อง: ตลาด 100 ปี ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
-            '<div class="cam-label">สดจากช่องยูทูป</div>' +
+            '<div class="cam-label">สดจากกล้องตลาด 100 ปี ร่อนพิบูลย์</div>' +
             '<div class="video-container">' +
-                '<iframe src="https://www.youtube.com/embed/tqx5v9m_Kx0?si=MIbLNpZH-nKxhJjt" ' +
-                    'title="YouTube video player" frameborder="0" ' +
-                    'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
-                    'referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>' +
+                '<iframe src="https://rtsp.me/embed/bTvHkWA4knv12Keh/" ' +
+                    'style="width:100%; aspect-ratio:16/9; border:0;" ' +
+                    'title="RTSP streaming player" ' +
+                    'allow="fullscreen; autoplay" allowfullscreen>' +
+                    'Iframes not supported. Stream ' +
+                    '<a href="https://rtsp.me/" title="rtsp video streaming service">rtsp.me</a> player' +
                 '</iframe>' +
-            '</div>',
+            '</div>', 
             {
-                maxWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 24, 420) : 800,
-                minWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 48, 300) : 500
+                className: 'camera-popup',
+                maxWidth: window.innerWidth < 600 ? Math.max(window.innerWidth - 32, 260) : 460,
+                minWidth: window.innerWidth < 600 ? Math.max(window.innerWidth - 64, 240) : 280,
+                autoPan: true,
+                autoPanPadding: [16, 150]
             }
         );
 
