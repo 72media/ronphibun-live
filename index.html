@@ -85,13 +85,22 @@
         .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
         .leaflet-popup-tip { background: #1e90ff !important; }
         .cam-label { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #fff; }
-        .video-container { width: 100%; border-radius: 5px; overflow: hidden; background: #000; box-shadow: 0 0 10px #000; }
+        .video-container { position: relative; width: 100%; border-radius: 5px; overflow: hidden; background: #000; box-shadow: 0 0 10px #000; }
         .video-container iframe {
             display: block; width: 100%; height: min(450px, 56.25vw);
             min-height: 220px; aspect-ratio: 16 / 9; border: 0;
         }
 
-        /* ===== Animation สำหรับ divIcon (inline ใช้ตัวนี้) ===== */
+        /* แถบข้อความสภาพอากาศซ้อนทับบนวิดีโอ */
+        .video-weather-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: rgba(0, 0, 0, 0.65); color: #ffffff;
+            padding: 6px 12px; font-size: 12px; display: flex;
+            justify-content: space-between; align-items: center;
+            backdrop-filter: blur(4px); pointer-events: none;
+        }
+
+        /* ===== Animation สำหรับ divIcon ===== */
         @keyframes camPulse {
             0%, 100% { transform: scale(1);   box-shadow: 0 0 10px rgba(30,144,255,0.9), inset 0 0 6px rgba(30,144,255,0.4); }
             50%      { transform: scale(1.18); box-shadow: 0 0 20px rgba(30,144,255,1),   inset 0 0 10px rgba(30,144,255,0.7); }
@@ -114,7 +123,6 @@
         .radar-dot { width: 7px; height: 7px; border-radius: 50%; background: #00e5ff; box-shadow: 0 0 6px #00e5ff; animation: blink-dot 1.5s ease-in-out infinite; }
         @keyframes blink-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
         .radar-status-text { color: #aab5c2; font-size: 10px; }
-        /* Loading states: weather image and radar overlay */
         .loading-state {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             min-height: 90px; color: #b9eaff; font-size: 12px; text-align: center;
@@ -198,32 +206,6 @@
             }
             .video-container iframe { height: auto; min-height: 0; }
         }
-
-        @media (max-width: 420px) {
-            :root { --topbar-offset: 166px; }
-            .ui-top-container { grid-template-columns: minmax(0, 1fr) auto; }
-            .radar-panel-inline { grid-column: 1; }
-            .weather-btn { grid-column: 2; }
-            .header-title { grid-row: 3; }
-            .radar-panel-inline #radar-opacity-slider { width: 46px; }
-            .weather-btn { padding: 6px 8px; font-size: 10px; }
-        }
-
-        @media (max-height: 500px) and (orientation: landscape) {
-            :root { --topbar-offset: 86px; }
-            .ui-top-container { padding: 6px 10px; gap: 7px; }
-            #live-clock { font-size: 10px; }
-            .header-title { font-size: 11px; }
-            .weather-btn { padding: 5px 8px; font-size: 10px; }
-            #weather-overlay { top: calc(var(--topbar-offset) + 6px); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important; scroll-behavior: auto !important;
-            }
-        }
     </style>
 
     <script>
@@ -305,9 +287,9 @@
         L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);
         satelliteLayer.addTo(map);
 
-        // ========== 3. ไอคอนกล้อง (inline style ทั้งหมด, ไม่พึ่ง CSS class) ==========
+        // ========== 3. ไอคอนกล้อง ==========
         var camIcon = L.divIcon({
-            className: '',  // ไม่ให้ Leaflet ใส่ .leaflet-div-icon ทับ
+            className: '',
             html:
                 '<div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;' +
                         'background:rgba(30,144,255,0.15);border:1px solid rgba(30,144,255,0.6);border-radius:50%;' +
@@ -325,7 +307,7 @@
             popupAnchor: [0, -18]
         });
 
-        // ========== 4. หมุดกล้อง: ตลาด 100 ปี ==========
+        // ========== 4. หมุดกล้อง + แถบซ้อนทับสภาพอากาศด้านล่างวิดีโอ ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
             '<div class="cam-label">สดจากช่องยูทูป</div>' +
@@ -335,6 +317,10 @@
                     'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
                     'referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>' +
                 '</iframe>' +
+                '<div class="video-weather-overlay">' +
+                    '<span>📍 ตลาด 100 ปี ร่อนพิบูลย์</span>' +
+                    '<span id="popup-weather-status">🌡️ สภาพอากาศ: กำลังโหลด...</span>' +
+                '</div>' +
             '</div>',
             {
                 maxWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 24, 420) : 800,
@@ -342,8 +328,16 @@
             }
         );
 
-        // (ชั่วคราว) เปิด popup อัตโนมัติเพื่อทดสอบว่าหมุดอยู่ตรงไหน — ลบบรรทัดนี้ออกได้หลังทดสอบ
-        // marker1.openPopup();
+        // ฟังก์ชันอัปเดตข้อความสภาพอากาศจำลอง (หรือดึงจาก API จริง)
+        function updatePopupWeather() {
+            const el = document.getElementById('popup-weather-status');
+            if (el) {
+                // สามารถเปลี่ยนเป็นค่าจริงหรือดึงจาก API อากาศได้ตรงนี้ครับ
+                el.textContent = '🌡️ 28°C | ท้องฟ้าโปร่ง';
+            }
+        }
+        setInterval(updatePopupWeather, 10000);
+        setTimeout(updatePopupWeather, 500);
 
         function setWeatherLoading() {
             document.getElementById('weatherSkeleton').style.display = 'block';
