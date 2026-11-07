@@ -91,13 +91,14 @@
             min-height: 220px; aspect-ratio: 16 / 9; border: 0;
         }
 
-        /* แถบข้อความสภาพอากาศซ้อนทับบนวิดีโอ */
+        /* แถบข้อความสถานที่ซ้อนทับบนวิดีโอ */
         .video-weather-overlay {
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: rgba(0, 0, 0, 0.65); color: #ffffff;
-            padding: 6px 12px; font-size: 12px; display: flex;
-            justify-content: space-between; align-items: center;
+            padding: 8px 12px; font-size: 13px; display: flex;
+            justify-content: center; align-items: center; /* เปลี่ยนเป็น center เพื่อให้อยู่กึ่งกลาง */
             backdrop-filter: blur(4px); pointer-events: none;
+            font-weight: bold;
         }
 
         /* ===== Animation สำหรับ divIcon ===== */
@@ -307,7 +308,7 @@
             popupAnchor: [0, -18]
         });
 
-        // ========== 4. หมุดกล้อง + แถบซ้อนทับสภาพอากาศด้านล่างวิดีโอ ==========
+        // ========== 4. หมุดกล้อง (ลบข้อความสภาพอากาศจำลองออกแล้ว) ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
             '<div class="cam-label">สดจากช่องยูทูป</div>' +
@@ -319,7 +320,6 @@
                 '</iframe>' +
                 '<div class="video-weather-overlay">' +
                     '<span>📍 ตลาด 100 ปี ร่อนพิบูลย์</span>' +
-                    '<span id="popup-weather-status">🌡️ สภาพอากาศ: กำลังโหลด...</span>' +
                 '</div>' +
             '</div>',
             {
@@ -327,17 +327,6 @@
                 minWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 48, 300) : 500
             }
         );
-
-        // ฟังก์ชันอัปเดตข้อความสภาพอากาศจำลอง (หรือดึงจาก API จริง)
-        function updatePopupWeather() {
-            const el = document.getElementById('popup-weather-status');
-            if (el) {
-                // สามารถเปลี่ยนเป็นค่าจริงหรือดึงจาก API อากาศได้ตรงนี้ครับ
-                el.textContent = '🌡️ 28°C | ท้องฟ้าโปร่ง';
-            }
-        }
-        setInterval(updatePopupWeather, 10000);
-        setTimeout(updatePopupWeather, 500);
 
         function setWeatherLoading() {
             document.getElementById('weatherSkeleton').style.display = 'block';
