@@ -57,7 +57,10 @@
         .header-title {
             color: #ffffff; font-weight: bold; font-size: 15px; margin-right: 10px;
             min-width: 0; overflow: hidden; text-overflow: ellipsis;
+            cursor: pointer; user-select: none; transition: 0.25s ease;
+            padding: 3px 8px; border-radius: 10px;
         }
+        .header-title:hover { color: #00e5ff; background: rgba(0, 229, 255, 0.12); text-shadow: 0 0 8px rgba(0, 229, 255, 0.7); }
         .weather-btn {
             background: linear-gradient(135deg, rgba(0, 64, 128, 0.9), rgba(0, 110, 190, 0.78));
             color: white; border: 1px solid rgba(30, 144, 255, 0.9);
@@ -81,6 +84,33 @@
         #weather-overlay img { width: 100%; border-radius: 8px; }
         .close-btn { color: #ff4444; cursor: pointer; float: right; font-weight: bold; margin-bottom: 8px; }
 
+        /* Snapshot Overlay (ภาพนิ่งจากกล้อง VIGI C340) */
+        #snapshot-overlay {
+            display: none; position: absolute; top: var(--topbar-offset); left: 50%;
+            transform: translateX(-50%); z-index: 1001;
+            width: min(96%, 960px); max-height: calc(100dvh - var(--topbar-offset) - 18px);
+            overflow-y: auto; padding: 16px; border: 1px solid var(--glass-border);
+            border-radius: 18px; background: rgba(0, 0, 0, 0.78);
+            box-shadow: var(--glass-shadow);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            backdrop-filter: blur(16px) saturate(140%);
+        }
+        .snap-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #fff; font-weight: bold; font-size: 14px; }
+        .snap-header .snap-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .snap-header .close-btn { margin: 0; float: none; }
+        .snap-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+        .snap-frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .snap-frame .loading-state, .snap-frame .snap-error {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+        }
+        .snap-error {
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            color: #ffb4b4; font-size: 12px; text-align: center; padding: 10px;
+        }
+        .snap-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 10px; color: #b9eaff; font-size: 12px; }
+        .snap-meta b { color: #fff; }
+        .snap-meta .retry-btn { margin: 0 0 0 auto; }
+
         /* Video Popup */
         .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
         .leaflet-popup-tip { background: #1e90ff !important; }
@@ -96,7 +126,7 @@
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: rgba(0, 0, 0, 0.65); color: #ffffff;
             padding: 8px 12px; font-size: 13px; display: flex;
-            justify-content: center; align-items: center; /* เปลี่ยนเป็น center เพื่อให้อยู่กึ่งกลาง */
+            justify-content: center; align-items: center;
             backdrop-filter: blur(4px); pointer-events: none;
             font-weight: bold;
         }
@@ -162,7 +192,7 @@
         .radar-retry-btn { display: none; margin: 0; padding: 2px 7px; font-size: 10px; }
         .radar-panel-inline.is-error .radar-retry-btn { display: inline-block; }
 
-        button:focus-visible, input:focus-visible {
+        button:focus-visible, input:focus-visible, .header-title:focus-visible {
             outline: 2px solid #fff; outline-offset: 3px;
         }
         .leaflet-top.leaflet-right { top: var(--topbar-offset); }
@@ -201,7 +231,7 @@
             }
             .weather-btn { grid-column: 3; grid-row: 2; padding: 6px 9px; font-size: 11px; }
             .leaflet-top.leaflet-right { top: var(--topbar-offset); }
-            #weather-overlay {
+            #weather-overlay, #snapshot-overlay {
                 top: calc(var(--topbar-offset) + 8px); width: calc(100% - 20px);
                 max-height: calc(100dvh - var(--topbar-offset) - 18px); padding: 10px;
             }
@@ -248,7 +278,10 @@
             </div>
         </div>
 
-        <div class="header-title">กล้องตลาด 100ปี ร่อนพิบูลย์+เรดาร์</div>
+        <div class="header-title" id="headerTitle" role="button" tabindex="0"
+             title="คลิกเพื่อดูภาพนิ่งจากกล้อง (อัปเดตทุก 10 นาที)"
+             onclick="toggleSnapshot()"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSnapshot();}">กล้องตลาด 100ปี ร่อนพิบูลย์+เรดาร์</div>
         <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
     </div>
 
@@ -262,6 +295,29 @@
             <button class="retry-btn" onclick="retryWeather()">ลองโหลดใหม่</button>
         </div>
         <img id="weatherImage" src="https://www.yr.no/en/content/2-1150921/meteogram.svg?mode=dark&t=1773373548447" alt="Meteogram" onload="weatherLoaded()" onerror="weatherFailed()">
+    </div>
+
+    <!-- ภาพนิ่งจากกล้อง VIGI C340 (อัปเดตทุก 10 นาที) -->
+    <div id="snapshot-overlay" aria-live="polite">
+        <div class="snap-header">
+            <span>📷</span>
+            <span class="snap-title">ภาพนิ่งตลาด 100 ปี ร่อนพิบูลย์ (VIGI C340)</span>
+            <span class="close-btn" onclick="toggleSnapshot()">[ปิด X]</span>
+        </div>
+        <div class="snap-frame">
+            <img id="snapImage" alt="ภาพนิ่งจากกล้อง VIGI C340" style="display:none"
+                 onload="snapLoaded()" onerror="snapFailed()">
+            <div class="loading-state" id="snapLoading"><span class="loading-spinner"></span><span>กำลังโหลดภาพ...</span></div>
+            <div class="snap-error" id="snapError">
+                ไม่สามารถโหลดภาพนิ่งได้<br>
+                <button class="retry-btn" onclick="loadSnapshot()">ลองใหม่</button>
+            </div>
+        </div>
+        <div class="snap-meta">
+            <span>ภาพถ่ายเมื่อ: <b id="snapShotTime">-</b></span>
+            <span>รีเฟรชอัตโนมัติใน: <b id="snapCountdown">10:00</b></span>
+            <button class="retry-btn" onclick="loadSnapshot()">🔄 รีเฟรชตอนนี้</button>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -308,7 +364,7 @@
             popupAnchor: [0, -18]
         });
 
-        // ========== 4. หมุดกล้อง (ลบข้อความสภาพอากาศจำลองออกแล้ว) ==========
+        // ========== 4. หมุดกล้อง ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
             '<div class="cam-label">สดจากช่องยูทูป</div>' +
@@ -328,6 +384,7 @@
             }
         );
 
+        // ========== 4.5 Weather overlay ==========
         function setWeatherLoading() {
             document.getElementById('weatherSkeleton').style.display = 'block';
             document.getElementById('weatherError').style.display = 'none';
@@ -352,6 +409,7 @@
         function toggleWeather() {
             var el = document.getElementById('weather-overlay');
             var opening = el.style.display !== 'block';
+            if (opening) closeSnapshot();
             el.style.display = opening ? 'block' : 'none';
             if (opening) {
                 var image = document.getElementById('weatherImage');
@@ -359,6 +417,72 @@
             }
         }
         setWeatherLoading();
+
+        // ========== 4.6 ภาพนิ่งกล้อง VIGI C340 (ทุก 10 นาที) ==========
+        // *** แก้ URL นี้เป็นลิงก์สาธารณะของไฟล์ภาพบน Cloudflare R2 ***
+        // เช่น https://pub-xxxxxxxx.r2.dev/market-latest.jpg  หรือโดเมนของคุณ
+        var SNAPSHOT_URL = 'https://pub-43b9d2ce9b8945cdbc1a478865818678.r2.dev/market-latest.jpg';
+        var SNAPSHOT_INTERVAL_SEC = 600; // 10 นาที
+
+        var snapTimer = null;
+        var snapRemaining = SNAPSHOT_INTERVAL_SEC;
+
+        function fmtCountdown(s) {
+            var m = Math.floor(s / 60), r = s % 60;
+            return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+        }
+        function loadSnapshot() {
+            document.getElementById('snapLoading').style.display = 'flex';
+            document.getElementById('snapError').style.display = 'none';
+            document.getElementById('snapImage').style.display = 'none';
+            document.getElementById('snapImage').src = SNAPSHOT_URL + '?t=' + Date.now(); // กัน cache
+            snapRemaining = SNAPSHOT_INTERVAL_SEC;
+        }
+        function snapLoaded() {
+            document.getElementById('snapLoading').style.display = 'none';
+            document.getElementById('snapError').style.display = 'none';
+            document.getElementById('snapImage').style.display = 'block';
+            // พยายามอ่านเวลาที่ถ่ายจริงจาก Last-Modified (ต้องตั้ง CORS บน bucket) ถ้าไม่ได้ใช้เวลาที่โหลด
+            var shown = new Date();
+            document.getElementById('snapShotTime').textContent = shown.toLocaleTimeString('th-TH', {hour12:false}) + ' (เวลาที่โหลด)';
+            fetch(SNAPSHOT_URL + '?h=' + Date.now(), { method: 'HEAD' }).then(function (r) {
+                var lm = r.headers.get('Last-Modified');
+                if (lm) {
+                    document.getElementById('snapShotTime').textContent =
+                        new Date(lm).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'medium', hour12: false });
+                }
+            }).catch(function () {});
+        }
+        function snapFailed() {
+            document.getElementById('snapLoading').style.display = 'none';
+            document.getElementById('snapImage').style.display = 'none';
+            document.getElementById('snapError').style.display = 'flex';
+        }
+        function startSnapTimer() {
+            stopSnapTimer();
+            snapTimer = setInterval(function () {
+                snapRemaining--;
+                if (snapRemaining <= 0) { loadSnapshot(); }
+                document.getElementById('snapCountdown').textContent = fmtCountdown(Math.max(snapRemaining, 0));
+            }, 1000);
+        }
+        function stopSnapTimer() { if (snapTimer) { clearInterval(snapTimer); snapTimer = null; } }
+        function closeSnapshot() {
+            document.getElementById('snapshot-overlay').style.display = 'none';
+            stopSnapTimer();
+        }
+        function toggleSnapshot() {
+            var el = document.getElementById('snapshot-overlay');
+            var opening = el.style.display !== 'block';
+            if (opening) {
+                document.getElementById('weather-overlay').style.display = 'none';
+                el.style.display = 'block';
+                loadSnapshot();
+                startSnapTimer();
+            } else {
+                closeSnapshot();
+            }
+        }
 
         // ========== 5. Radar ==========
         var radarUrl = 'https://semet.uk/loop/NSTLoop.gif';
