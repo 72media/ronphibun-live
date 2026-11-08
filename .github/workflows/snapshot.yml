@@ -1,0 +1,35 @@
+name: Camera snapshot to R2
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # ทุก 10 นาที (GitHub อาจเลื่อนได้ไม่กี่นาทีตอนคิวแน่น)
+  workflow_dispatch:          # กดรันเองจากหน้า Actions เพื่อทดสอบ
+
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Grab frame from VIGI C340 (RTSP)
+        env:
+          VIGI_USER: ${{ secrets.VIGI_USER }}
+          VIGI_PASS: ${{ secrets.VIGI_PASS }}
+          CAM_HOST: ${{ secrets.CAM_HOST }}   # เช่น mycam.ddns.net:3380
+        run: |
+          timeout 40 ffmpeg -y -loglevel error -rtsp_transport tcp \
+            -i "rtsp://${VIGI_USER}:${VIGI_PASS}@${CAM_HOST}/stream1" \
+            -frames:v 1 -q:v 3 snap.jpg
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws s3 cp snap.jpg s3://vigi-weather/market-latest.jpg \
+            --endpoint-url https://cde9b0cbd85e60217ce645180785a992.r2.cloudflarestorage.com \
+            --content-type image/jpeg \
+            --cache-control "max-age=60"
