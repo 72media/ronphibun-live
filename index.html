@@ -131,6 +131,21 @@
             font-weight: bold;
         }
 
+
+        /* Tabs + ภาพนิ่งในป๊อปอัปหมุดกล้อง */
+        .pop-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+        .pop-tab {
+            background: transparent; border: 1px solid #1e90ff; color: #1e90ff;
+            border-radius: 14px; padding: 4px 14px; font-size: 12px; font-weight: bold;
+            cursor: pointer; transition: 0.2s ease; font-family: inherit;
+        }
+        .pop-tab:hover, .pop-tab.active { background: #1e90ff; color: #000; }
+        .pop-snap { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 220px; background: #000; border-radius: 5px; overflow: hidden; }
+        .pop-snap img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .pop-snap-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b9eaff; font-size: 12px; text-align: center; padding: 10px; }
+        .pop-snap-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; color: #b9eaff; font-size: 12px; }
+        .pop-snap-meta b { color: #fff; }
+
         /* ===== Animation สำหรับ divIcon ===== */
         @keyframes camPulse {
             0%, 100% { transform: scale(1);   box-shadow: 0 0 10px rgba(30,144,255,0.9), inset 0 0 6px rgba(30,144,255,0.4); }
@@ -236,6 +251,7 @@
                 max-height: calc(100dvh - var(--topbar-offset) - 18px); padding: 10px;
             }
             .video-container iframe { height: auto; min-height: 0; }
+            .pop-snap { min-height: 0; }
         }
     </style>
 
@@ -367,9 +383,13 @@
         // ========== 4. หมุดกล้อง ==========
         var marker1 = L.marker([8.184235, 99.850726], {icon: camIcon}).addTo(map);
         marker1.bindPopup(
-            '<div class="cam-label">สดจากช่องยูทูป</div>' +
-            '<div class="video-container">' +
-                '<iframe src="https://www.youtube.com/embed/c8oR_3Edeks?si=7Lbqx8pGwLGCuIrK" ' +
+            '<div class="cam-label">📍 ตลาด 100 ปี ร่อนพิบูลย์</div>' +
+            '<div class="pop-tabs">' +
+                '<button type="button" class="pop-tab active" id="popTabLive" onclick="popShow(\'live\')">🔴 สด</button>' +
+                '<button type="button" class="pop-tab" id="popTabSnap" onclick="popShow(\'snap\')">📷 ภาพนิ่ง</button>' +
+            '</div>' +
+            '<div class="video-container" id="popLive">' +
+                '<iframe src="https://www.youtube.com/embed/XdcdzuDgk0c?si=5e2to0A1zAytBS8a" ' +
                     'title="YouTube video player" frameborder="0" ' +
                     'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ' +
                     'referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>' +
@@ -377,12 +397,73 @@
                 '<div class="video-weather-overlay">' +
                     '<span>📍 ตลาด 100 ปี ร่อนพิบูลย์</span>' +
                 '</div>' +
+            '</div>' +
+            '<div id="popSnap" style="display:none">' +
+                '<div class="pop-snap">' +
+                    '<img id="popSnapImg" alt="ภาพนิ่งจากกล้อง" style="display:none" onload="popSnapLoaded()" onerror="popSnapFailed()">' +
+                    '<div class="pop-snap-msg" id="popSnapMsg">กำลังโหลดภาพ...</div>' +
+                '</div>' +
+                '<div class="pop-snap-meta">' +
+                    '<span>ถ่ายเมื่อ: <b id="popSnapTime">-</b></span>' +
+                    '<button type="button" class="pop-tab" onclick="popLoadSnap()">🔄 รีเฟรช</button>' +
+                '</div>' +
             '</div>',
             {
                 maxWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 24, 420) : 800,
                 minWidth: window.innerWidth < 600 ? Math.min(window.innerWidth - 48, 300) : 500
             }
         );
+
+        // ========== 4.4 แท็บ สด/ภาพนิ่ง ในป๊อปอัปหมุดกล้อง ==========
+        function popShow(which) {
+            var live = document.getElementById('popLive');
+            var snap = document.getElementById('popSnap');
+            if (!live || !snap) return;
+            var frame = live.querySelector('iframe');
+            document.getElementById('popTabLive').classList.toggle('active', which === 'live');
+            document.getElementById('popTabSnap').classList.toggle('active', which === 'snap');
+            if (which === 'snap') {
+                // หยุดวิดีโอ YouTube ระหว่างดูภาพนิ่ง
+                if (frame && frame.src && frame.src !== 'about:blank') { frame.dataset.src = frame.src; frame.src = 'about:blank'; }
+                live.style.display = 'none';
+                snap.style.display = 'block';
+                popLoadSnap();
+            } else {
+                live.style.display = 'block';
+                snap.style.display = 'none';
+                if (frame && frame.dataset.src) { frame.src = frame.dataset.src; delete frame.dataset.src; }
+            }
+        }
+        function popLoadSnap() {
+            var img = document.getElementById('popSnapImg');
+            var msg = document.getElementById('popSnapMsg');
+            if (!img || !msg) return;
+            msg.style.display = 'flex';
+            msg.textContent = 'กำลังโหลดภาพ...';
+            img.style.display = 'none';
+            img.src = SNAPSHOT_URL + '?t=' + Date.now(); // กัน cache
+        }
+        function popSnapLoaded() {
+            document.getElementById('popSnapMsg').style.display = 'none';
+            document.getElementById('popSnapImg').style.display = 'block';
+            var t = document.getElementById('popSnapTime');
+            t.textContent = new Date().toLocaleTimeString('th-TH', { hour12: false }) + ' (เวลาที่โหลด)';
+            fetch(SNAPSHOT_URL + '?h=' + Date.now(), { method: 'HEAD' }).then(function (r) {
+                var lm = r.headers.get('Last-Modified');
+                if (lm) t.textContent = new Date(lm).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'medium', hour12: false });
+            }).catch(function () {});
+        }
+        function popSnapFailed() {
+            var msg = document.getElementById('popSnapMsg');
+            document.getElementById('popSnapImg').style.display = 'none';
+            msg.style.display = 'flex';
+            msg.textContent = 'โหลดภาพนิ่งไม่สำเร็จ กด "รีเฟรช" เพื่อลองใหม่';
+        }
+        // รีเฟรชอัตโนมัติทุก 10 นาที เมื่อเปิดแท็บภาพนิ่งอยู่
+        setInterval(function () {
+            var snap = document.getElementById('popSnap');
+            if (snap && snap.style.display === 'block') popLoadSnap();
+        }, 600000);
 
         // ========== 4.5 Weather overlay ==========
         function setWeatherLoading() {
@@ -551,4 +632,3 @@
     </script>
 </body>
 </html>
-
