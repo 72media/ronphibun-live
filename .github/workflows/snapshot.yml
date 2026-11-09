@@ -2,7 +2,7 @@ name: Camera snapshot to R2
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # ทุก 10 นาที (GitHub อาจเลื่อนได้ไม่กี่นาทีตอนคิวแน่น)
+    - cron: '*/5 * * * *'   # ทุก 5นาที (GitHub อาจเลื่อนได้ไม่กี่นาทีตอนคิวแน่น)
   workflow_dispatch:          # กดรันเองจากหน้า Actions เพื่อทดสอบ
 
 jobs:
@@ -33,3 +33,4 @@ jobs:
             --endpoint-url https://cde9b0cbd85e60217ce645180785a992.r2.cloudflarestorage.com \
             --content-type image/jpeg \
             --cache-control "max-age=60"
+            
