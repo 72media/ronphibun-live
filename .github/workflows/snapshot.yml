@@ -21,10 +21,20 @@ env:
 jobs:
   snap:
     runs-on: ubuntu-24.04      # ล็อกเวอร์ชัน ไม่ใช้ latest เพราะกำลังย้ายไป Ubuntu 26
-    timeout-minutes: 7
+    timeout-minutes: 8
     steps:
       # ติดตั้ง ffmpeg ด้วย apt แต่ลองซ้ำได้ 3 ครั้ง ครั้งละไม่เกิน 70 วินาที (กันค้างรอบเดียวแล้วล้มทั้งงาน)
-      - name: Install ffmpeg
+      # เก็บแพ็กเกจ ffmpeg ไว้ในแคช: รอบแรกช้า รอบต่อไปดึงจากแคชใน 2-3 วินาที
+      - name: Cache ffmpeg (apt)
+        continue-on-error: true
+        timeout-minutes: 3
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: ffmpeg
+          version: 1.0
+
+      # สำรอง: ถ้าแคชไม่ทำงานและยังไม่มี ffmpeg ค่อยติดตั้งด้วย apt (ลองซ้ำได้ 3 ครั้ง)
+      - name: Install ffmpeg (fallback)
         timeout-minutes: 4
         run: |
           command -v ffmpeg >/dev/null && { echo "มี ffmpeg แล้ว"; exit 0; }
