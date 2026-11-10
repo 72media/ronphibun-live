@@ -10,6 +10,14 @@ concurrency:
   group: snapshot
   cancel-in-progress: true
 
+env:
+  TZ: Asia/Bangkok                       # ชั่วโมงของภาพรายชั่วโมงเป็นเวลาไทย
+  R2_BUCKET: vigi-weather
+  R2_ENDPOINT: https://cde9b0cbd85e60217ce645180785a992.r2.cloudflarestorage.com
+  AWS_DEFAULT_REGION: auto
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+
 jobs:
   snap:
     runs-on: ubuntu-latest
@@ -33,15 +41,36 @@ jobs:
             -i "rtsp://${VIGI_USER}:${VIGI_PASS}@${CAM_HOST}/stream1" \
             -frames:v 1 -q:v 3 snap.jpg
 
-      - name: Upload to Cloudflare R2
+      - name: Upload to Cloudflare R2 (latest + hourly)
         timeout-minutes: 1
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
-          AWS_DEFAULT_REGION: auto
         run: |
-          aws s3 cp snap.jpg s3://vigi-weather/market-latest.jpg \
-            --endpoint-url https://cde9b0cbd85e60217ce645180785a992.r2.cloudflarestorage.com \
-            --cli-connect-timeout 15 --cli-read-timeout 30 \
-            --content-type image/jpeg \
-            --cache-control "max-age=60"
+          set -euo pipefail
+          AWS="aws --endpoint-url $R2_ENDPOINT --cli-connect-timeout 15 --cli-read-timeout 30"
+
+          # 1) ภาพล่าสุด (อัปทับทุกรอบ)
+          $AWS s3 cp snap.jpg "s3://$R2_BUCKET/market-latest.jpg" \
+            --content-type image/jpeg --cache-control "max-age=60"
+
+          # 2) ภาพประจำชั่วโมง: hourly/00.jpg ... hourly/23.jpg (24 ไฟล์ เขียนทับของเมื่อวาน)
+          #    ถ่ายเก็บครั้งแรกของแต่ละชั่วโมงเท่านั้น รอบที่เหลือของชั่วโมงเดียวกันข้าม
+          SLOT=$(date +%H)
+          NOW_H=$(date +%F-%H)
+          LM=$($AWS s3api head-object --bucket "$R2_BUCKET" --key "hourly/${SLOT}_t.jpg" \
+                 --query LastModified --output text 2>/dev/null || true)
+          LM_H=""
+          if [ -n "$LM" ] && [ "$LM" != "None" ]; then LM_H=$(date -d "$LM" +%F-%H 2>/dev/null || true); fi
+
+          if [ "$LM_H" = "$NOW_H" ]; then
+            echo "ชั่วโมง $SLOT มีภาพแล้ว ข้าม"
+          else
+            echo "เก็บภาพประจำชั่วโมง $SLOT"
+            ffmpeg -y -loglevel error -i snap.jpg -vf scale=480:-2 -q:v 5 thumb.jpg
+            # อัปภาพเต็มก่อน แล้วค่อยอัปภาพย่อ (หน้าเว็บใช้ภาพย่อเป็นตัวบอกว่ามีภาพแล้ว)
+            $AWS s3 cp snap.jpg "s3://$R2_BUCKET/hourly/${SLOT}.jpg" \
+              --content-type image/jpeg --cache-control "public, max-age=300"
+            $AWS s3 cp thumb.jpg "s3://$R2_BUCKET/hourly/${SLOT}_t.jpg" \
+              --content-type image/jpeg --cache-control "public, max-age=300"
+          fi
