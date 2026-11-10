@@ -21,11 +21,21 @@ env:
 jobs:
   snap:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 6
     steps:
-      - name: Install ffmpeg
+      # วิธีหลัก: โหลด ffmpeg สำเร็จรูป (เร็วกว่า apt และไม่ค้างตามคิวของ mirror)
+      - name: Setup ffmpeg (prebuilt)
+        id: ff
+        continue-on-error: true
         timeout-minutes: 2
+        uses: FedericoCarboni/setup-ffmpeg@v3
+
+      # สำรอง: ถ้าวิธีหลักพลาดและยังไม่มี ffmpeg ค่อยใช้ apt
+      - name: Install ffmpeg (apt fallback)
+        if: steps.ff.outcome != 'success'
+        timeout-minutes: 3
         run: |
+          command -v ffmpeg >/dev/null && exit 0
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update -qq
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y -qq ffmpeg
 
