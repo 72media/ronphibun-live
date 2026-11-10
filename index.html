@@ -111,6 +111,39 @@
         .snap-meta b { color: #fff; }
         .snap-meta .retry-btn { margin: 0 0 0 auto; }
 
+        /* ตารางภาพรายชั่วโมง 24 รูป + กรอบขยายภาพ */
+        .hour-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .hour-toolbar .retry-btn { margin: 0; }
+        .hour-hint { color: #aab5c2; font-size: 11px; margin-left: auto; }
+        .hour-msg { color: #b9eaff; font-size: 12px; text-align: center; padding: 24px 10px; }
+        .hour-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+        .hour-cell {
+            display: block; padding: 0; border: 1px solid rgba(80, 190, 255, 0.35); border-radius: 8px;
+            background: #000; color: #fff; cursor: pointer; overflow: hidden; font-family: inherit;
+            transition: 0.2s ease; text-align: center;
+        }
+        .hour-cell:hover, .hour-cell:focus-visible { border-color: var(--radar-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.55); transform: translateY(-1px); }
+        .hour-cell img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #111; }
+        .hour-cell span { display: block; padding: 4px 2px; font-size: 11px; color: #b9eaff; }
+        #lightbox {
+            display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.88); padding: 16px;
+            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        }
+        #lightbox figure { margin: 0; max-width: min(1400px, 100%); max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #lbImage { display: block; max-width: 100%; max-height: calc(100dvh - 110px); border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transition: opacity 0.15s ease; }
+        #lbCaption { color: #fff; font-size: 14px; font-weight: bold; text-align: center; }
+        #lbCaption .lb-warn { color: #ffb4b4; }
+        .lb-btn {
+            position: absolute; border: 1px solid var(--radar-cyan); background: rgba(0, 16, 24, 0.75); color: var(--radar-cyan);
+            border-radius: 50%; width: 44px; height: 44px; font-size: 18px; cursor: pointer; transition: 0.2s ease; font-family: inherit;
+        }
+        .lb-btn:hover:not(:disabled) { background: var(--radar-cyan); color: #001018; }
+        .lb-btn:disabled { opacity: 0.3; cursor: default; }
+        .lb-close { top: 14px; right: 14px; }
+        .lb-prev { left: 14px; top: 50%; transform: translateY(-50%); }
+        .lb-next { right: 14px; top: 50%; transform: translateY(-50%); }
+
         /* Video Popup */
         .leaflet-popup-content-wrapper { background: rgba(0,0,0,0.95) !important; color: #1e90ff !important; border: 2px solid #1e90ff; }
         .leaflet-popup-tip { background: #1e90ff !important; }
@@ -236,6 +269,9 @@
                 max-height: calc(100dvh - var(--topbar-offset) - 18px); padding: 10px;
             }
             .video-container iframe { height: auto; min-height: 0; }
+            .hour-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .hour-hint { display: none; }
+            .lb-prev { left: 6px; } .lb-next { right: 6px; }
         }
     </style>
 
@@ -279,7 +315,7 @@
         </div>
 
         <div class="header-title" id="headerTitle" role="button" tabindex="0"
-             title="คลิกเพื่อดูภาพนิ่งจากกล้อง (อัปเดตทุก 5 นาที)"
+             title="คลิกเพื่อดูภาพนิ่ง 24 ชั่วโมงล่าสุดจากกล้อง"
              onclick="toggleSnapshot()"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSnapshot();}">กล้องตลาด 100ปี ร่อนพิบูลย์+เรดาร์</div>
         <button class="weather-btn" onclick="toggleWeather()">🌡️ เช็คสภาพอากาศ</button>
@@ -297,27 +333,31 @@
         <img id="weatherImage" src="https://www.yr.no/en/content/2-1150921/meteogram.svg?mode=dark&t=1773373548447" alt="Meteogram" onload="weatherLoaded()" onerror="weatherFailed()">
     </div>
 
-    <!-- ภาพนิ่งจากกล้อง VIGI C340 (อัปเดตทุก 5 นาที) -->
+    <!-- ภาพนิ่งจากกล้อง VIGI C340: ภาพรายชั่วโมง 24 รูป + ภาพล่าสุด -->
     <div id="snapshot-overlay" aria-live="polite">
         <div class="snap-header">
             <span>📷</span>
-            <span class="snap-title">ภาพนิ่งตลาด 100 ปี ร่อนพิบูลย์ (VIGI C340)</span>
+            <span class="snap-title">ภาพนิ่ง 24 ชั่วโมงล่าสุด ตลาด 100 ปี ร่อนพิบูลย์ (VIGI C340)</span>
             <span class="close-btn" onclick="toggleSnapshot()">[ปิด X]</span>
         </div>
-        <div class="snap-frame">
-            <img id="snapImage" alt="ภาพนิ่งจากกล้อง VIGI C340" style="display:none"
-                 onload="snapLoaded()" onerror="snapFailed()">
-            <div class="loading-state" id="snapLoading"><span class="loading-spinner"></span><span>กำลังโหลดภาพ...</span></div>
-            <div class="snap-error" id="snapError">
-                ไม่สามารถโหลดภาพนิ่งได้<br>
-                <button class="retry-btn" onclick="loadSnapshot()">ลองใหม่</button>
-            </div>
+        <div class="hour-toolbar">
+            <button type="button" class="retry-btn" onclick="openLightbox(lbItems.length - 1)">📷 ดูภาพล่าสุด (อัปเดตทุก 5 นาที)</button>
+            <button type="button" class="retry-btn" onclick="loadHours()">🔄 รีเฟรช</button>
+            <span class="hour-hint">คลิกที่ภาพเพื่อขยาย</span>
         </div>
-        <div class="snap-meta">
-            <span>ภาพถ่ายเมื่อ: <b id="snapShotTime">-</b></span>
-            <span>รีเฟรชอัตโนมัติใน: <b id="snapCountdown">05:00</b></span>
-            <button class="retry-btn" onclick="loadSnapshot()">🔄 รีเฟรชตอนนี้</button>
-        </div>
+        <div id="hourMsg" class="hour-msg">กำลังโหลดภาพ...</div>
+        <div id="hourGrid" class="hour-grid"></div>
+    </div>
+
+    <!-- กรอบขยายภาพ (อยู่นอก overlay เพื่อให้เต็มหน้าจอ) -->
+    <div id="lightbox" role="dialog" aria-modal="true" aria-label="ภาพขยาย" onclick="if(event.target===this)closeLightbox()">
+        <button type="button" class="lb-btn lb-close" onclick="closeLightbox()" aria-label="ปิด">✕</button>
+        <button type="button" class="lb-btn lb-prev" id="lbPrev" onclick="lbStep(-1)" aria-label="ภาพก่อนหน้า">◀</button>
+        <figure>
+            <img id="lbImage" alt="ภาพขยายจากกล้อง" onload="this.style.opacity=1">
+            <figcaption id="lbCaption"></figcaption>
+        </figure>
+        <button type="button" class="lb-btn lb-next" id="lbNext" onclick="lbStep(1)" aria-label="ภาพถัดไป">▶</button>
     </div>
 
     <div id="map"></div>
@@ -418,58 +458,99 @@
         }
         setWeatherLoading();
 
-        // ========== 4.6 ภาพนิ่งกล้อง VIGI C340 (ทุก 5 นาที) ==========
-        // *** แก้ URL นี้เป็นลิงก์สาธารณะของไฟล์ภาพบน Cloudflare R2 ***
-        // เช่น https://pub-xxxxxxxx.r2.dev/market-latest.jpg  หรือโดเมนของคุณ
+        // ========== 4.6 ภาพนิ่งกล้อง VIGI C340: ภาพรายชั่วโมง 24 รูป + ภาพล่าสุด ==========
         var SNAPSHOT_URL = 'https://pub-43b9d2ce9b8945cdbc1a478865818678.r2.dev/market-latest.jpg';
-        var SNAPSHOT_INTERVAL_SEC = 300; // 5 นาที
+        var R2_BASE = SNAPSHOT_URL.replace(/\/[^\/]*$/, '');   // https://pub-xxxx.r2.dev
+        var LATEST_ITEM = { latest: true, full: SNAPSHOT_URL, label: 'ภาพล่าสุด' };
+        var hourItems = [];
+        var lbItems = [LATEST_ITEM];   // ภาพรายชั่วโมง (เก่า→ใหม่) แล้วตามด้วยภาพล่าสุด
+        var lbIndex = 0;
 
-        var snapTimer = null;
-        var snapRemaining = SNAPSHOT_INTERVAL_SEC;
+        function bkkDay(d) { return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); }
+        function fmtHM(d) { return d.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }); }
 
-        function fmtCountdown(s) {
-            var m = Math.floor(s / 60), r = s % 60;
-            return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
-        }
-        function loadSnapshot() {
-            document.getElementById('snapLoading').style.display = 'flex';
-            document.getElementById('snapError').style.display = 'none';
-            document.getElementById('snapImage').style.display = 'none';
-            document.getElementById('snapImage').src = SNAPSHOT_URL + '?t=' + Date.now(); // กัน cache
-            snapRemaining = SNAPSHOT_INTERVAL_SEC;
-        }
-        function snapLoaded() {
-            document.getElementById('snapLoading').style.display = 'none';
-            document.getElementById('snapError').style.display = 'none';
-            document.getElementById('snapImage').style.display = 'block';
-            // พยายามอ่านเวลาที่ถ่ายจริงจาก Last-Modified (ต้องตั้ง CORS บน bucket) ถ้าไม่ได้ใช้เวลาที่โหลด
-            var shown = new Date();
-            document.getElementById('snapShotTime').textContent = shown.toLocaleTimeString('th-TH', {hour12:false}) + ' (เวลาที่โหลด)';
-            fetch(SNAPSHOT_URL + '?h=' + Date.now(), { method: 'HEAD' }).then(function (r) {
-                var lm = r.headers.get('Last-Modified');
-                if (lm) {
-                    document.getElementById('snapShotTime').textContent =
-                        new Date(lm).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'medium', hour12: false });
+        function loadHours() {
+            var grid = document.getElementById('hourGrid');
+            var msg = document.getElementById('hourMsg');
+            msg.style.display = 'block';
+            msg.textContent = 'กำลังโหลดภาพ...';
+            grid.innerHTML = '';
+            var jobs = [];
+            for (var h = 0; h < 24; h++) {
+                (function (slot) {
+                    jobs.push(fetch(R2_BASE + '/hourly/' + slot + '_t.jpg?h=' + Date.now(), { method: 'HEAD', cache: 'no-store' })
+                        .then(function (r) {
+                            var lm = r.ok ? r.headers.get('Last-Modified') : null;
+                            return lm ? { slot: slot, t: new Date(lm) } : null;
+                        })
+                        .catch(function () { return null; }));
+                })(('0' + h).slice(-2));
+            }
+            Promise.all(jobs).then(function (res) {
+                var now = Date.now();
+                var today = bkkDay(new Date());
+                // เอาเฉพาะภาพไม่เกิน 25 ชั่วโมง แล้วเรียงเก่า → ใหม่
+                hourItems = res.filter(function (x) { return x && now - x.t.getTime() < 25 * 3600 * 1000; })
+                               .sort(function (a, b) { return a.t - b.t; });
+                hourItems.forEach(function (it) {
+                    var v = it.t.getTime();
+                    it.thumb = R2_BASE + '/hourly/' + it.slot + '_t.jpg?v=' + v;
+                    it.full = R2_BASE + '/hourly/' + it.slot + '.jpg?v=' + v;
+                    it.label = (bkkDay(it.t) === today ? 'วันนี้' : 'เมื่อวาน') + ' ' + it.slot + ':00 น.';
+                });
+                lbItems = hourItems.concat([LATEST_ITEM]);
+                if (!hourItems.length) {
+                    msg.textContent = 'ยังไม่มีภาพรายชั่วโมง (ระบบเก็บภาพชั่วโมงละ 1 รูป) กดปุ่ม "ดูภาพล่าสุด" ได้';
+                    return;
                 }
-            }).catch(function () {});
+                msg.style.display = 'none';
+                grid.innerHTML = hourItems.map(function (it, i) {
+                    return '<button type="button" class="hour-cell" onclick="openLightbox(' + i + ')">' +
+                           '<img loading="lazy" src="' + it.thumb + '" alt="' + it.label + '"><span>' + it.label + '</span></button>';
+                }).join('');
+            });
         }
-        function snapFailed() {
-            document.getElementById('snapLoading').style.display = 'none';
-            document.getElementById('snapImage').style.display = 'none';
-            document.getElementById('snapError').style.display = 'flex';
+
+        function openLightbox(i) {
+            lbIndex = Math.max(0, Math.min(i, lbItems.length - 1));
+            var it = lbItems[lbIndex];
+            var img = document.getElementById('lbImage');
+            var cap = document.getElementById('lbCaption');
+            document.getElementById('lightbox').style.display = 'flex';
+            document.getElementById('lbPrev').disabled = lbIndex === 0;
+            document.getElementById('lbNext').disabled = lbIndex === lbItems.length - 1;
+            cap.textContent = it.label + ' (' + (lbIndex + 1) + '/' + lbItems.length + ')';
+            img.style.opacity = 0.35;
+            img.src = it.latest ? it.full + '?t=' + Date.now() : it.full;
+            if (it.latest) {
+                var mine = lbIndex;
+                fetch(it.full + '?h=' + Date.now(), { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+                    var lm = r.headers.get('Last-Modified');
+                    if (!lm || lbIndex !== mine) return;
+                    var d = new Date(lm);
+                    var age = Math.round((Date.now() - d.getTime()) / 60000);
+                    cap.textContent = 'ภาพล่าสุด ถ่ายเมื่อ ' + fmtHM(d) + ' น. (' + age + ' นาทีที่แล้ว)';
+                    if (age > 12) {
+                        var w = document.createElement('span');
+                        w.className = 'lb-warn';
+                        w.textContent = '  ⚠️ ภาพเก่า';
+                        cap.appendChild(w);
+                    }
+                }).catch(function () {});
+            }
         }
-        function startSnapTimer() {
-            stopSnapTimer();
-            snapTimer = setInterval(function () {
-                snapRemaining--;
-                if (snapRemaining <= 0) { loadSnapshot(); }
-                document.getElementById('snapCountdown').textContent = fmtCountdown(Math.max(snapRemaining, 0));
-            }, 1000);
-        }
-        function stopSnapTimer() { if (snapTimer) { clearInterval(snapTimer); snapTimer = null; } }
+        function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
+        function lbStep(d) { openLightbox(lbIndex + d); }
+        document.addEventListener('keydown', function (e) {
+            if (document.getElementById('lightbox').style.display !== 'flex') return;
+            if (e.key === 'Escape') closeLightbox();
+            else if (e.key === 'ArrowLeft') lbStep(-1);
+            else if (e.key === 'ArrowRight') lbStep(1);
+        });
+
         function closeSnapshot() {
             document.getElementById('snapshot-overlay').style.display = 'none';
-            stopSnapTimer();
+            closeLightbox();
         }
         function toggleSnapshot() {
             var el = document.getElementById('snapshot-overlay');
@@ -477,8 +558,7 @@
             if (opening) {
                 document.getElementById('weather-overlay').style.display = 'none';
                 el.style.display = 'block';
-                loadSnapshot();
-                startSnapTimer();
+                loadHours();
             } else {
                 closeSnapshot();
             }
