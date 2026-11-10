@@ -23,27 +23,19 @@ jobs:
     runs-on: ubuntu-24.04      # ล็อกเวอร์ชัน ไม่ใช้ latest เพราะกำลังย้ายไป Ubuntu 26
     timeout-minutes: 8
     steps:
-      # ติดตั้ง ffmpeg ด้วย apt แต่ลองซ้ำได้ 3 ครั้ง ครั้งละไม่เกิน 70 วินาที (กันค้างรอบเดียวแล้วล้มทั้งงาน)
-      # เก็บแพ็กเกจ ffmpeg ไว้ในแคช: รอบแรกช้า รอบต่อไปดึงจากแคชใน 2-3 วินาที
-      - name: Cache ffmpeg (apt)
-        continue-on-error: true
-        timeout-minutes: 3
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: ffmpeg
-          version: 1.0
-
-      # สำรอง: ถ้าแคชไม่ทำงานและยังไม่มี ffmpeg ค่อยติดตั้งด้วย apt (ลองซ้ำได้ 3 ครั้ง)
-      - name: Install ffmpeg (fallback)
-        timeout-minutes: 4
+      # ติดตั้ง ffmpeg: ลองติดตั้งตรงๆ ก่อน (ไม่ update, ไม่ลงแพ็กเกจเสริม เร็วสุด)
+      # ถ้าพลาด ค่อย update แล้วลองใหม่ รวมสูงสุด 3 ครั้ง และเช็กว่า ffmpeg รันได้จริง
+      - name: Install ffmpeg
+        timeout-minutes: 5
         run: |
-          command -v ffmpeg >/dev/null && { echo "มี ffmpeg แล้ว"; exit 0; }
+          ok() { ffmpeg -version >/dev/null 2>&1; }
+          ok && { echo "มี ffmpeg ที่ใช้งานได้แล้ว"; exit 0; }
+          APT="sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o DPkg::Lock::Timeout=30"
           for i in 1 2 3; do
             echo "ติดตั้งครั้งที่ $i"
-            if timeout 70 sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=15 update -qq \
-               && timeout 70 sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=15 install -y -qq ffmpeg; then
-              exit 0
-            fi
+            if [ "$i" -gt 1 ]; then timeout 80 $APT update -qq || true; fi
+            timeout 100 $APT install -y -qq --no-install-recommends ffmpeg || true
+            ok && { echo "ติดตั้งสำเร็จ"; exit 0; }
             sleep 3
           done
           echo "ติดตั้ง ffmpeg ไม่สำเร็จ"; exit 1
