@@ -5,25 +5,36 @@ on:
     - cron: '*/5 * * * *'    # ทุก 5 นาที (GitHub อาจเลื่อนได้ไม่กี่นาทีตอนคิวแน่น)
   workflow_dispatch:          # กดรันเองจากหน้า Actions เพื่อทดสอบ
 
+# ถ้ารอบเก่าค้าง แล้วรอบใหม่เริ่ม ให้ยกเลิกรอบเก่าทิ้ง จะได้ไม่ค้างต่อกัน
+concurrency:
+  group: snapshot
+  cancel-in-progress: true
+
 jobs:
   snap:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - name: Install ffmpeg
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+        timeout-minutes: 2
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y -qq ffmpeg
 
       - name: Grab frame from VIGI C340 (RTSP)
+        timeout-minutes: 1
         env:
           VIGI_USER: ${{ secrets.VIGI_USER }}
           VIGI_PASS: ${{ secrets.VIGI_PASS }}
           CAM_HOST: ${{ secrets.CAM_HOST }}   # เช่น mycam.ddns.net:3380
         run: |
-          timeout 40 ffmpeg -y -loglevel error -rtsp_transport tcp \
+          # -timeout 15000000 = ถ้ากล้องไม่ตอบเกิน 15 วินาที ให้เลิก (กันค้าง)
+          timeout -k 5 45 ffmpeg -y -loglevel error -rtsp_transport tcp -timeout 15000000 \
             -i "rtsp://${VIGI_USER}:${VIGI_PASS}@${CAM_HOST}/stream1" \
             -frames:v 1 -q:v 3 snap.jpg
 
       - name: Upload to Cloudflare R2
+        timeout-minutes: 1
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
@@ -31,6 +42,6 @@ jobs:
         run: |
           aws s3 cp snap.jpg s3://vigi-weather/market-latest.jpg \
             --endpoint-url https://cde9b0cbd85e60217ce645180785a992.r2.cloudflarestorage.com \
+            --cli-connect-timeout 15 --cli-read-timeout 30 \
             --content-type image/jpeg \
             --cache-control "max-age=60"
-            
