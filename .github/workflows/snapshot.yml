@@ -20,24 +20,23 @@ env:
 
 jobs:
   snap:
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
+    runs-on: ubuntu-24.04      # ล็อกเวอร์ชัน ไม่ใช้ latest เพราะกำลังย้ายไป Ubuntu 26
+    timeout-minutes: 7
     steps:
-      # วิธีหลัก: โหลด ffmpeg สำเร็จรูป (เร็วกว่า apt และไม่ค้างตามคิวของ mirror)
-      - name: Setup ffmpeg (prebuilt)
-        id: ff
-        continue-on-error: true
-        timeout-minutes: 2
-        uses: FedericoCarboni/setup-ffmpeg@v3
-
-      # สำรอง: ถ้าวิธีหลักพลาดและยังไม่มี ffmpeg ค่อยใช้ apt
-      - name: Install ffmpeg (apt fallback)
-        if: steps.ff.outcome != 'success'
-        timeout-minutes: 3
+      # ติดตั้ง ffmpeg ด้วย apt แต่ลองซ้ำได้ 3 ครั้ง ครั้งละไม่เกิน 70 วินาที (กันค้างรอบเดียวแล้วล้มทั้งงาน)
+      - name: Install ffmpeg
+        timeout-minutes: 4
         run: |
-          command -v ffmpeg >/dev/null && exit 0
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update -qq
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y -qq ffmpeg
+          command -v ffmpeg >/dev/null && { echo "มี ffmpeg แล้ว"; exit 0; }
+          for i in 1 2 3; do
+            echo "ติดตั้งครั้งที่ $i"
+            if timeout 70 sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=15 update -qq \
+               && timeout 70 sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=15 install -y -qq ffmpeg; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "ติดตั้ง ffmpeg ไม่สำเร็จ"; exit 1
 
       - name: Grab frame from VIGI C340 (RTSP)
         timeout-minutes: 1
