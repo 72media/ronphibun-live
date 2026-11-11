@@ -116,7 +116,7 @@
         .hour-toolbar .retry-btn { margin: 0; }
         .hour-hint { color: #aab5c2; font-size: 11px; margin-left: auto; }
         .hour-msg { color: #b9eaff; font-size: 12px; text-align: center; padding: 24px 10px; }
-        .hour-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+        .hour-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
         .hour-cell {
             display: block; padding: 0; border: 1px solid rgba(80, 190, 255, 0.35); border-radius: 8px;
             background: #000; color: #fff; cursor: pointer; overflow: hidden; font-family: inherit;
@@ -124,7 +124,10 @@
         }
         .hour-cell:hover, .hour-cell:focus-visible { border-color: var(--radar-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.55); transform: translateY(-1px); }
         .hour-cell img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #111; }
-        .hour-cell span { display: block; padding: 4px 2px; font-size: 11px; color: #b9eaff; }
+        .hour-cell .hc-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 10px; background: rgba(0, 20, 35, 0.85); }
+        .hour-cell .hc-time { font-size: 16px; font-weight: bold; color: #fff; letter-spacing: 0.5px; }
+        .hour-cell .hc-day { font-size: 12px; padding: 2px 8px; border-radius: 999px; color: #b9eaff; background: rgba(255, 255, 255, 0.12); }
+        .hour-cell .hc-day.is-today { color: #00141f; background: var(--radar-cyan); font-weight: bold; }
         #lightbox {
             display: none; position: fixed; inset: 0; z-index: 3000; align-items: center; justify-content: center;
             background: rgba(0, 0, 0, 0.88); padding: 16px;
@@ -269,7 +272,9 @@
                 max-height: calc(100dvh - var(--topbar-offset) - 18px); padding: 10px;
             }
             .video-container iframe { height: auto; min-height: 0; }
-            .hour-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .hour-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .hour-cell .hc-time { font-size: 15px; }
+            .hour-cell .hc-foot { padding: 5px 8px; }
             .hour-hint { display: none; }
             .lb-prev { left: 6px; } .lb-next { right: 6px; }
         }
@@ -496,7 +501,8 @@
                     var v = it.t.getTime();
                     it.thumb = R2_BASE + '/hourly/' + it.slot + '_t.jpg?v=' + v;
                     it.full = R2_BASE + '/hourly/' + it.slot + '.jpg?v=' + v;
-                    it.label = (bkkDay(it.t) === today ? 'วันนี้' : 'เมื่อวาน') + ' ' + it.slot + ':00 น.';
+                    it.isToday = bkkDay(it.t) === today;
+                    it.label = (it.isToday ? 'วันนี้' : 'เมื่อวาน') + ' ' + it.slot + ':00 น.';
                 });
                 lbItems = hourItems.concat([LATEST_ITEM]);
                 if (!hourItems.length) {
@@ -506,7 +512,9 @@
                 msg.style.display = 'none';
                 grid.innerHTML = hourItems.map(function (it, i) {
                     return '<button type="button" class="hour-cell" onclick="openLightbox(' + i + ')">' +
-                           '<img loading="lazy" src="' + it.thumb + '" alt="' + it.label + '"><span>' + it.label + '</span></button>';
+                           '<img loading="lazy" src="' + it.thumb + '" alt="' + it.label + '">' +
+                           '<span class="hc-foot"><span class="hc-time">' + it.slot + ':00 น.</span>' +
+                           '<span class="hc-day' + (it.isToday ? ' is-today' : '') + '">' + (it.isToday ? 'วันนี้' : 'เมื่อวาน') + '</span></span></button>';
                 }).join('');
             });
         }
